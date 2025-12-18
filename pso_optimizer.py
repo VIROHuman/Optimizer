@@ -1,0 +1,406 @@
+"""
+Particle Swarm Optimization (PSO) Module.
+
+Manual implementation of PSO for transmission tower design optimization.
+
+CRITICAL PRINCIPLES:
+- Explores ONLY feasible designs
+- NEVER interprets engineering codes
+- NEVER overrides safety
+- Uses penalty-based rejection for unsafe designs
+
+The optimizer is code-agnostic and relies entirely on the codal engine
+for safety validation.
+"""
+
+import random
+import math
+from typing import List, Tuple, Callable, Dict, Any
+from dataclasses import dataclass
+
+from data_models import (
+    TowerDesign, OptimizationInputs, DesignStandard,
+    TowerType, FoundationType, SafetyCheckResult, OptimizationResult
+)
+from codal_engine.base import CodalEngine
+from cost_engine import calculate_cost
+
+
+# Penalty for unsafe designs (must be larger than any realistic cost)
+VERY_LARGE_PENALTY = 1e10
+
+
+@dataclass
+class Particle:
+    """
+    Represents a particle in the PSO swarm.
+    
+    Each particle has:
+    - Position (design parameters)
+    - Velocity (search direction)
+    - Best known position (personal best)
+    - Best known fitness (cost)
+    """
+    position: List[float]  # Design parameters as continuous values
+    velocity: List[float]
+    best_position: List[float]
+    best_fitness: float
+    current_design: TowerDesign  # Decoded design
+    current_fitness: float
+
+
+class PSOOptimizer:
+    """
+    Particle Swarm Optimization engine for transmission tower design.
+    
+    This optimizer:
+    - Explores design space using PSO algorithm
+    - Uses codal engine to validate safety
+    - Uses cost engine to evaluate fitness
+    - Applies penalty to unsafe designs
+    """
+    
+    def __init__(
+        self,
+        codal_engine: CodalEngine,
+        inputs: OptimizationInputs,
+        num_particles: int = 30,
+        max_iterations: int = 100,
+        w: float = 0.7,  # Inertia weight
+        c1: float = 1.5,  # Cognitive coefficient
+        c2: float = 1.5,  # Social coefficient
+    ):
+        """
+        Initialize PSO optimizer.
+        
+        Args:
+            codal_engine: CodalEngine instance for safety checks
+            inputs: OptimizationInputs with project context
+            num_particles: Number of particles in swarm
+            max_iterations: Maximum iterations
+            w: Inertia weight (0.4-0.9 typical)
+            c1: Cognitive coefficient (1.5-2.0 typical)
+            c2: Social coefficient (1.5-2.0 typical)
+        """
+        self.codal_engine = codal_engine
+        self.inputs = inputs
+        self.num_particles = num_particles
+        self.max_iterations = max_iterations
+        self.w = w
+        self.c1 = c1
+        self.c2 = c2
+        
+        # Voltage-based minimum tower height bounds
+        voltage_min_heights = {
+            132: 25.0,
+            220: 30.0,
+            400: 40.0,
+            765: 50.0,
+            900: 55.0,
+        }
+        
+        # Find minimum height for voltage level
+        voltage = inputs.voltage_level
+        min_height = 25.0  # Default minimum
+        for v_level, h in sorted(voltage_min_heights.items()):
+            if voltage >= v_level:
+                min_height = h
+        
+        # Decision variable bounds
+        self.bounds = {
+            'height': (min_height, 60.0),
+            'base_width': (0.0, 0.0),  # Will be set relative to height
+            'span': (inputs.span_min, inputs.span_max),
+            'footing_length': (3.0, 8.0),
+            'footing_width': (3.0, 8.0),
+            'footing_depth': (2.0, 6.0),
+        }
+        
+        # Store voltage minimum for clamping
+        self.voltage_min_height = min_height
+        
+        # Global best
+        self.global_best_position: List[float] = []
+        self.global_best_fitness: float = float('inf')
+        self.global_best_design: TowerDesign = None
+        
+        # Convergence tracking
+        self.convergence_history: List[float] = []
+    
+    def optimize(
+        self,
+        tower_type: TowerType = TowerType.SUSPENSION
+    ) -> OptimizationResult:
+        """
+        Run PSO optimization.
+        
+        Args:
+            tower_type: Type of tower to optimize
+            
+        Returns:
+            OptimizationResult with best design and metadata
+        """
+        # Initialize swarm
+        particles = self._initialize_swarm(tower_type)
+        
+        # Main optimization loop
+        for iteration in range(self.max_iterations):
+            # Evaluate all particles
+            for particle in particles:
+                # Check safety
+                safety_result = self.codal_engine.is_design_safe(
+                    particle.current_design,
+                    self.inputs
+                )
+                
+                # Calculate fitness (per-kilometer line cost)
+                if safety_result.is_safe:
+                    # Calculate per-tower cost
+                    per_tower_cost = calculate_cost(particle.current_design, self.inputs)
+                    # Convert to per-kilometer line cost
+                    fitness = self._calculate_per_km_cost(per_tower_cost, particle.current_design)
+                else:
+                    fitness = VERY_LARGE_PENALTY  # Penalty for unsafe design
+                
+                particle.current_fitness = fitness
+                
+                # Update personal best
+                if fitness < particle.best_fitness:
+                    particle.best_fitness = fitness
+                    particle.best_position = particle.position.copy()
+                
+                # Update global best
+                if fitness < self.global_best_fitness:
+                    self.global_best_fitness = fitness
+                    self.global_best_position = particle.position.copy()
+                    self.global_best_design = particle.current_design
+            
+            # Track convergence
+            self.convergence_history.append(self.global_best_fitness)
+            
+            # Update velocities and positions
+            for particle in particles:
+                self._update_particle(particle)
+            
+            # Early stopping if converged
+            if iteration > 20:
+                recent_improvement = (
+                    self.convergence_history[-20] - self.convergence_history[-1]
+                )
+                # Early stopping threshold adjusted for per-km cost (typically $10k-$50k/km)
+                if recent_improvement < 1000.0:  # Less than $1000/km improvement in last 20 iterations
+                    break
+        
+        # Final safety check on best design
+        final_safety = self.codal_engine.is_design_safe(
+            self.global_best_design,
+            self.inputs
+        )
+        
+        # Calculate final costs for output
+        if final_safety.is_safe:
+            per_tower_cost = calculate_cost(self.global_best_design, self.inputs)
+            per_km_cost = self._calculate_per_km_cost(per_tower_cost, self.global_best_design)
+            
+            # Calculate ROW costs for output
+            from cost_engine import calculate_row_corridor_cost_per_km, _calculate_land_cost
+            row_corridor_cost_per_km = calculate_row_corridor_cost_per_km(self.inputs)
+            tower_footprint_land_cost = _calculate_land_cost(self.global_best_design, self.inputs)
+            towers_per_km = 1000.0 / self.global_best_design.span_length
+            row_tower_footprint_per_km = tower_footprint_land_cost * towers_per_km
+        else:
+            per_tower_cost = VERY_LARGE_PENALTY
+            per_km_cost = VERY_LARGE_PENALTY
+            row_corridor_cost_per_km = 0.0
+            row_tower_footprint_per_km = 0.0
+        
+        return OptimizationResult(
+            best_design=self.global_best_design,
+            best_cost=per_km_cost if final_safety.is_safe else VERY_LARGE_PENALTY,
+            is_safe=final_safety.is_safe,
+            safety_violations=final_safety.violations,
+            governing_standard=self.inputs.governing_standard,
+            iterations=iteration + 1,
+            convergence_info={
+                'convergence_history': self.convergence_history,
+                'final_iteration': iteration + 1,
+                'per_tower_cost': per_tower_cost,
+                'per_km_cost': per_km_cost,
+                'row_corridor_cost_per_km': row_corridor_cost_per_km,
+                'row_tower_footprint_per_km': row_tower_footprint_per_km,
+            }
+        )
+    
+    def _initialize_swarm(self, tower_type: TowerType) -> List[Particle]:
+        """
+        Initialize particle swarm with random positions.
+        
+        Args:
+            tower_type: Type of tower
+            
+        Returns:
+            List of initialized particles
+        """
+        particles = []
+        
+        for _ in range(self.num_particles):
+            # Random position within bounds
+            # Enforce voltage-based minimum height
+            height = random.uniform(self.voltage_min_height, self.bounds['height'][1])
+            base_width_min = height * 0.25
+            base_width_max = height * 0.40
+            base_width = random.uniform(base_width_min, base_width_max)
+            span = random.uniform(*self.bounds['span'])
+            footing_length = random.uniform(*self.bounds['footing_length'])
+            footing_width = random.uniform(*self.bounds['footing_width'])
+            footing_depth = random.uniform(*self.bounds['footing_depth'])
+            
+            position = [
+                height,
+                base_width,
+                span,
+                footing_length,
+                footing_width,
+                footing_depth,
+            ]
+            
+            # Random velocity
+            velocity = [
+                random.uniform(-1, 1) * (self.bounds['height'][1] - self.bounds['height'][0]) * 0.1,
+                random.uniform(-1, 1) * height * 0.1,
+                random.uniform(-1, 1) * (self.bounds['span'][1] - self.bounds['span'][0]) * 0.1,
+                random.uniform(-1, 1) * (self.bounds['footing_length'][1] - self.bounds['footing_length'][0]) * 0.1,
+                random.uniform(-1, 1) * (self.bounds['footing_width'][1] - self.bounds['footing_width'][0]) * 0.1,
+                random.uniform(-1, 1) * (self.bounds['footing_depth'][1] - self.bounds['footing_depth'][0]) * 0.1,
+            ]
+            
+            # Decode to design
+            design = self._decode_position(position, tower_type)
+            
+            # Initialize particle
+            particle = Particle(
+                position=position,
+                velocity=velocity,
+                best_position=position.copy(),
+                best_fitness=float('inf'),
+                current_design=design,
+                current_fitness=float('inf'),
+            )
+            particles.append(particle)
+        
+        return particles
+    
+    def _decode_position(
+        self,
+        position: List[float],
+        tower_type: TowerType
+    ) -> TowerDesign:
+        """
+        Decode continuous position vector to TowerDesign.
+        
+        Args:
+            position: [height, base_width, span, footing_length, footing_width, footing_depth]
+            tower_type: Type of tower
+            
+        Returns:
+            TowerDesign instance
+        """
+        height, base_width, span, footing_length, footing_width, footing_depth = position
+        
+        # Clamp to bounds
+        # Enforce voltage-based minimum height
+        height = max(self.voltage_min_height, min(self.bounds['height'][1], height))
+        base_width_min = height * 0.25
+        base_width_max = height * 0.40
+        base_width = max(base_width_min, min(base_width_max, base_width))
+        span = max(self.bounds['span'][0], min(self.bounds['span'][1], span))
+        footing_length = max(self.bounds['footing_length'][0], min(self.bounds['footing_length'][1], footing_length))
+        footing_width = max(self.bounds['footing_width'][0], min(self.bounds['footing_width'][1], footing_width))
+        footing_depth = max(self.bounds['footing_depth'][0], min(self.bounds['footing_depth'][1], footing_depth))
+        
+        # Choose foundation type (simplified: use pad footing)
+        foundation_type = FoundationType.PAD_FOOTING
+        
+        return TowerDesign(
+            tower_type=tower_type,
+            tower_height=height,
+            base_width=base_width,
+            span_length=span,
+            foundation_type=foundation_type,
+            footing_length=footing_length,
+            footing_width=footing_width,
+            footing_depth=footing_depth,
+        )
+    
+    def _update_particle(self, particle: Particle):
+        """
+        Update particle velocity and position using PSO equations.
+        
+        Args:
+            particle: Particle to update
+        """
+        # Update velocity
+        for i in range(len(particle.position)):
+            r1 = random.random()
+            r2 = random.random()
+            
+            # PSO velocity update equation
+            cognitive = self.c1 * r1 * (particle.best_position[i] - particle.position[i])
+            social = self.c2 * r2 * (self.global_best_position[i] - particle.position[i])
+            particle.velocity[i] = (
+                self.w * particle.velocity[i] + cognitive + social
+            )
+        
+        # Update position
+        for i in range(len(particle.position)):
+            particle.position[i] += particle.velocity[i]
+        
+        # Decode new position to design
+        particle.current_design = self._decode_position(
+            particle.position,
+            particle.current_design.tower_type
+        )
+    
+    def _calculate_per_km_cost(
+        self,
+        per_tower_cost: float,
+        design: TowerDesign
+    ) -> float:
+        """
+        Calculate per-kilometer line cost from per-tower cost.
+        
+        This is the optimization objective function.
+        
+        Formula:
+          per_km_cost = (per_tower_cost × towers_per_km) + ROW_corridor_cost_per_km
+        
+        Where:
+          towers_per_km = 1000 / span_length
+          ROW_corridor_cost_per_km = corridor_width × land_rate × 1000
+        
+        Note: per_tower_cost includes tower footprint land cost.
+        Corridor ROW cost is added separately at line level.
+        
+        Args:
+            per_tower_cost: Cost per single tower (USD), includes tower footprint land cost
+            design: TowerDesign with span length
+            
+        Returns:
+            Cost per kilometer of transmission line (USD/km)
+        """
+        from cost_engine import calculate_row_corridor_cost_per_km
+        
+        # Calculate towers per kilometer
+        towers_per_km = 1000.0 / design.span_length
+        
+        # Per-tower costs per kilometer
+        tower_costs_per_km = per_tower_cost * towers_per_km
+        
+        # ROW corridor cost per kilometer (DOMINANT ROW component)
+        row_corridor_cost_per_km = calculate_row_corridor_cost_per_km(self.inputs)
+        
+        # Total per-kilometer line cost
+        per_km_cost = tower_costs_per_km + row_corridor_cost_per_km
+        
+        return per_km_cost
+

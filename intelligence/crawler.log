@@ -1,0 +1,6 @@
+2025-12-18 13:43:22,325 - intelligence.currency_crawler - WARNING - Network error fetching Fixer.io: 401 Client Error: Unauthorized for url: http://data.fixer.io/api/latest?access_key=b9f5d90acda9ac4bd8452f4181dd3c36&symbols=USD%2CINR
+2025-12-18 13:44:27,716 - intelligence.currency_crawler - WARNING - Network error fetching Fixer.io: 401 Client Error: Unauthorized for url: https://data.fixer.io/api/latest?access_key=b9f5d90acda9ac4bd8452f4181dd3c36&symbols=USD%2CINR
+2025-12-18 13:48:00,094 - intelligence.currency_crawler - WARNING - Fixer.io API key is invalid or expired (401 Unauthorized). Falling back to exchangerate.host.
+2025-12-18 13:51:31,883 - intelligence.currency_crawler - INFO - Successfully fetched USD/INR rate from Yahoo Finance: 90.155
+2025-12-18 13:55:08,328 - intelligence.currency_crawler - INFO - Successfully fetched USD/INR rate from Yahoo Finance: 90.143
+2025-12-18 14:04:11,540 - intelligence.currency_crawler - INFO - Successfully fetched USD/INR rate from Yahoo Finance: 90.191
