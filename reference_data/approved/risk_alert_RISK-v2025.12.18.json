@@ -7,11 +7,11 @@
     "severity": "moderate",
     "source": "USGS",
     "description": "Recent seismic activity: M5.5 earthquake detected",
-    "timestamp": "2025-12-18T14:04:20.311944",
+    "timestamp": "2025-12-18T16:06:41.574799",
     "data_summary": "seismic alert for usa: moderate severity"
   },
   "approved_by": "Bhargav",
-  "approved_at": "2025-12-18T14:04:32.184636",
+  "approved_at": "2025-12-18T16:06:57.535878",
   "is_active": true,
   "metadata": {
     "risk_type": "seismic",
@@ -19,7 +19,7 @@
     "severity": "moderate",
     "source": "USGS",
     "description": "Recent seismic activity: M5.5 earthquake detected",
-    "timestamp": "2025-12-18T14:04:20.311944",
+    "timestamp": "2025-12-18T16:06:41.574799",
     "data_summary": "seismic alert for usa: moderate severity"
   }
 }
