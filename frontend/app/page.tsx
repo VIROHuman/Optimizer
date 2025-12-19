@@ -37,12 +37,12 @@ export default function Home() {
     setShowResults(false)
     
     try {
-      // Store project length (frontend-only, not sent to backend)
+      // Store project length for display
       const projectLengthNum = Number(data.projectLength) || 50
       setProjectLength(projectLengthNum)
       
       // Normalize payload to match backend schema exactly
-      // Note: projectLength is NOT included in payload (frontend-only)
+      // projectLength is now sent to backend for canonical format
       const payload = normalizePayload(data)
       
       // Log payload for debugging

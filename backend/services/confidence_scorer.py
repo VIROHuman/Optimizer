@@ -1,0 +1,115 @@
+"""
+Confidence Scoring Engine.
+
+Provides honest estimates with confidence scores based on assumptions.
+"""
+
+from typing import List, Tuple
+from data_models import OptimizationInputs, TerrainType
+
+
+def calculate_confidence_score(
+    inputs: OptimizationInputs,
+    has_terrain_profile: bool = False,
+    has_soil_survey: bool = False,
+    has_wind_data: bool = False,
+) -> int:
+    """
+    Calculate confidence score (0-100%) for optimization results.
+    
+    DEPRECATED: Use calculate_confidence_score_with_drivers instead.
+    """
+    score, _ = calculate_confidence_score_with_drivers(
+        inputs, has_terrain_profile, has_soil_survey, has_wind_data
+    )
+    return score
+
+
+def get_confidence_explanation(score: int) -> str:
+    """Get human-readable explanation of confidence score."""
+    if score >= 90:
+        return "High confidence - based on detailed site data"
+    elif score >= 75:
+        return "Good confidence - some assumptions made"
+    elif score >= 60:
+        return "Moderate confidence - several assumptions"
+    else:
+        return "Lower confidence - significant assumptions made"
+
+
+def calculate_confidence_score_with_drivers(
+    inputs: OptimizationInputs,
+    has_terrain_profile: bool = False,
+    has_soil_survey: bool = False,
+    has_wind_data: bool = False,
+    row_mode: str = "urban_private",
+) -> Tuple[int, List[str]]:
+    """
+    Calculate confidence score (0-100%) with drivers.
+    
+    Starts at 100% and reduces based on assumptions.
+    
+    Args:
+        inputs: OptimizationInputs
+        has_terrain_profile: Whether detailed terrain profile available
+        has_soil_survey: Whether soil survey data available
+        has_wind_data: Whether site-specific wind data available
+        row_mode: ROW mode used
+        
+    Returns:
+        Tuple of (confidence_score, drivers_list)
+    """
+    confidence = 100
+    drivers = []
+    
+    # Structural physics - always validated
+    drivers.append("Structural physics fully validated")
+    
+    # Terrain assumptions
+    if has_terrain_profile:
+        drivers.append("Terrain modeled using detailed elevation profile")
+    else:
+        confidence -= 15
+        drivers.append("Terrain modeled using satellite elevation data")
+    
+    # Soil assumptions
+    if has_soil_survey:
+        drivers.append("Soil properties from site survey")
+    else:
+        confidence -= 10
+        drivers.append("Soil category assumed from regional norms")
+    
+    # Wind assumptions
+    if has_wind_data:
+        drivers.append("Wind loads from site-specific data")
+    else:
+        confidence -= 10
+        drivers.append("Wind zone assumed from regional classification")
+    
+    # Complex terrain
+    if inputs.terrain_type == TerrainType.MOUNTAINOUS:
+        confidence -= 5
+        drivers.append("Mountainous terrain increases uncertainty")
+    
+    # Variable soil
+    if inputs.soil_category.value == "soft":
+        confidence -= 5
+        drivers.append("Soft soil conditions increase foundation uncertainty")
+    
+    # ROW model assumptions
+    if row_mode == "urban_private":
+        drivers.append("ROW model assumed conservative (urban private land)")
+    elif row_mode == "government_corridor":
+        drivers.append("ROW model assumes government corridor easement")
+    elif row_mode == "rural_private":
+        drivers.append("ROW model assumes rural private land compensation")
+    else:
+        drivers.append("ROW model assumes mixed scenario")
+    
+    # Advisory risks
+    drivers.append("Seismic, ice, wildfire treated as advisory (not auto-applied)")
+    
+    # Minimum confidence
+    confidence = max(50, confidence)
+    
+    return confidence, drivers

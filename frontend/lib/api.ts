@@ -67,7 +67,7 @@ export function normalizePayload(formData: any) {
     throw new Error(`Invalid tower type: ${formData.tower}. Must be one of: ${validTower.join(", ")}`)
   }
   
-  return {
+  const payload: any = {
     location: formData.location.trim().toLowerCase(),
     voltage: voltage,
     terrain: formData.terrain,
@@ -80,5 +80,29 @@ export function normalizePayload(formData: any) {
       conservative_foundation: !!formData.flags.conservative_foundation,
     },
   }
+  
+  // Add project_length_km if provided (now sent to backend for canonical format)
+  if (formData.projectLength) {
+    const projectLengthNum = Number(formData.projectLength)
+    if (!isNaN(projectLengthNum) && projectLengthNum >= 1 && projectLengthNum <= 1000) {
+      payload.project_length_km = projectLengthNum
+    }
+  }
+  
+  // Add route_coordinates if provided (TASK 5.3)
+  if (formData.routeCoordinates && formData.routeCoordinates.length >= 2) {
+    payload.route_coordinates = formData.routeCoordinates
+  }
+  
+  // Add terrain_profile if provided (TASK 5.3)
+  // Backend expects format: [{ "x": distance_m, "z": elevation_m }]
+  if (formData.terrainProfile && formData.terrainProfile.length > 0) {
+    payload.terrain_profile = formData.terrainProfile.map(point => ({
+      x: point.distance_m,
+      z: point.elevation_m,
+    }))
+  }
+  
+  return payload
 }
 

@@ -3,14 +3,22 @@ Particle Swarm Optimization (PSO) Module.
 
 Manual implementation of PSO for transmission tower design optimization.
 
-CRITICAL PRINCIPLES:
-- Explores ONLY feasible designs
-- NEVER interprets engineering codes
-- NEVER overrides safety
-- Uses penalty-based rejection for unsafe designs
+═══════════════════════════════════════════════════════════════════════════
+CORE CONTRACT (NON-NEGOTIABLE):
+═══════════════════════════════════════════════════════════════════════════
+
+This optimizer MUST always return the cheapest SAFE design.
+
+- Explores ONLY feasible designs (bounds enforced during search)
+- NEVER interprets engineering codes (delegates to codal engine)
+- NEVER overrides safety (penalty-based rejection for unsafe candidates)
+- ALWAYS tracks best safe design separately
+- FALLBACK: If no safe design found, returns conservative safe design
 
 The optimizer is code-agnostic and relies entirely on the codal engine
-for safety validation.
+for safety validation. Cost minimization is the objective, safety is
+a hard constraint enforced via penalty.
+═══════════════════════════════════════════════════════════════════════════
 """
 
 import random
@@ -30,7 +38,7 @@ from cost_engine import calculate_cost
 VERY_LARGE_PENALTY = 1e10
 
 
-@dataclass
+@dataclass(frozen=False)  # Must be mutable for PSO updates
 class Particle:
     """
     Represents a particle in the PSO swarm.
@@ -119,10 +127,16 @@ class PSOOptimizer:
         # Store voltage minimum for clamping
         self.voltage_min_height = min_height
         
-        # Global best
+        # Global best (may be unsafe)
         self.global_best_position: List[float] = []
         self.global_best_fitness: float = float('inf')
         self.global_best_design: TowerDesign = None
+        
+        # Global best SAFE design (CRITICAL: Always track best safe design)
+        self.global_best_safe_position: List[float] = []
+        self.global_best_safe_fitness: float = float('inf')
+        self.global_best_safe_design: TowerDesign = None
+        self.found_safe_design: bool = False
         
         # Convergence tracking
         self.convergence_history: List[float] = []
@@ -169,11 +183,18 @@ class PSOOptimizer:
                     particle.best_fitness = fitness
                     particle.best_position = particle.position.copy()
                 
-                # Update global best
+                # Update global best (may be unsafe)
                 if fitness < self.global_best_fitness:
                     self.global_best_fitness = fitness
                     self.global_best_position = particle.position.copy()
                     self.global_best_design = particle.current_design
+                
+                # Update global best SAFE design (CRITICAL: Track separately)
+                if safety_result.is_safe and fitness < self.global_best_safe_fitness:
+                    self.global_best_safe_fitness = fitness
+                    self.global_best_safe_position = particle.position.copy()
+                    self.global_best_safe_design = particle.current_design
+                    self.found_safe_design = True
             
             # Track convergence
             self.convergence_history.append(self.global_best_fitness)
@@ -212,22 +233,62 @@ class PSOOptimizer:
                 footing_depth=self.global_best_design.footing_depth,
             )
         
-        # Final safety check on best design
-        final_safety = self.codal_engine.is_design_safe(
-            self.global_best_design,
-            self.inputs
-        )
+        # CRITICAL: Always use best SAFE design if found, otherwise create conservative safe design
+        if self.found_safe_design:
+            # Use best safe design found during optimization
+            final_design = self.global_best_safe_design
+            final_safety = self.codal_engine.is_design_safe(final_design, self.inputs)
+        else:
+            # No safe design found - create conservative safe design
+            # This should rarely happen, but ensures we NEVER return unsafe final design
+            print("WARNING: No safe design found during optimization. Using conservative safe design.")
+            from data_models import TowerDesign, FoundationType
+            
+            # Conservative safe design: taller tower, larger base, shorter span
+            voltage = self.inputs.voltage_level
+            min_height = 40.0
+            if voltage >= 765:
+                min_height = 50.0
+            elif voltage >= 400:
+                min_height = 45.0
+            
+            final_design = TowerDesign(
+                tower_type=self.global_best_design.tower_type if self.global_best_design else tower_type,
+                tower_height=min_height,
+                base_width=max(12.0, min_height * 0.3),  # Conservative base width
+                span_length=self.bounds['span'][0] + 50.0,  # Shorter span (safer)
+                foundation_type=FoundationType.PAD_FOOTING,
+                footing_length=5.0,  # Larger footing
+                footing_width=5.0,
+                footing_depth=4.0,  # Deeper foundation
+            )
+            final_safety = self.codal_engine.is_design_safe(final_design, self.inputs)
+            # If still unsafe, log error (should never happen with conservative values)
+            if not final_safety.is_safe:
+                print(f"ERROR: Conservative design still unsafe. Violations: {final_safety.violations}")
+                # Force safe by using even more conservative values
+                final_design = TowerDesign(
+                    tower_type=final_design.tower_type,
+                    tower_height=min_height + 5.0,
+                    base_width=min_height * 0.35,
+                    span_length=self.bounds['span'][0],
+                    foundation_type=FoundationType.PAD_FOOTING,
+                    footing_length=6.0,
+                    footing_width=6.0,
+                    footing_depth=5.0,
+                )
+                final_safety = self.codal_engine.is_design_safe(final_design, self.inputs)
         
         # Calculate final costs for output
         if final_safety.is_safe:
-            per_tower_cost = calculate_cost(self.global_best_design, self.inputs)
-            per_km_cost = self._calculate_per_km_cost(per_tower_cost, self.global_best_design)
+            per_tower_cost = calculate_cost(final_design, self.inputs)
+            per_km_cost = self._calculate_per_km_cost(per_tower_cost, final_design)
             
             # Calculate ROW costs for output
             from cost_engine import calculate_row_corridor_cost_per_km, _calculate_land_cost
             row_corridor_cost_per_km = calculate_row_corridor_cost_per_km(self.inputs)
-            tower_footprint_land_cost = _calculate_land_cost(self.global_best_design, self.inputs)
-            towers_per_km = 1000.0 / self.global_best_design.span_length
+            tower_footprint_land_cost = _calculate_land_cost(final_design, self.inputs)
+            towers_per_km = 1000.0 / final_design.span_length
             row_tower_footprint_per_km = tower_footprint_land_cost * towers_per_km
         else:
             per_tower_cost = VERY_LARGE_PENALTY
@@ -236,10 +297,10 @@ class PSOOptimizer:
             row_tower_footprint_per_km = 0.0
         
         return OptimizationResult(
-            best_design=self.global_best_design,
+            best_design=final_design,  # Always use safe design (or conservative safe design)
             best_cost=per_km_cost if final_safety.is_safe else VERY_LARGE_PENALTY,
-            is_safe=final_safety.is_safe,
-            safety_violations=final_safety.violations,
+            is_safe=final_safety.is_safe,  # Should always be True now
+            safety_violations=final_safety.violations if not final_safety.is_safe else [],
             governing_standard=self.inputs.governing_standard,
             iterations=iteration + 1,
             convergence_info={
@@ -247,6 +308,7 @@ class PSOOptimizer:
                 'final_iteration': iteration + 1,
                 'per_tower_cost': per_tower_cost,
                 'per_km_cost': per_km_cost,
+                'found_safe_design': self.found_safe_design,  # Track if safe design was found
                 'row_corridor_cost_per_km': row_corridor_cost_per_km,
                 'row_tower_footprint_per_km': row_tower_footprint_per_km,
             }

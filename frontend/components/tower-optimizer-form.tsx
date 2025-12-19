@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import RouteMap from "@/components/route-map"
+import TerrainSampler from "@/components/terrain-sampler"
 
 interface TowerOptimizerFormProps {
   onSubmit?: (data: any) => void
@@ -21,13 +23,19 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
     wind: "",
     soil: "",
     tower: "suspension", // Default matches original optimizer
-    projectLength: "50", // Frontend-only: Project length in km (default 50)
+    projectLength: "50", // Fallback if no route defined
     flags: {
       design_for_higher_wind: false,
       include_ice_load: false,
       conservative_foundation: false,
     },
   })
+  
+  // Route state (from map)
+  const [routeCoordinates, setRouteCoordinates] = React.useState<Array<{ lat: number; lon: number }>>([])
+  const [routeLength, setRouteLength] = React.useState<number>(0)
+  const [terrainProfile, setTerrainProfile] = React.useState<Array<{ distance_m: number; elevation_m: number }>>([])
+  const [mapInstance, setMapInstance] = React.useState<any>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,14 +59,20 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
       return
     }
     
-    // Validate project length (frontend-only, not sent to backend)
-    const projectLengthNum = Number(formData.projectLength)
+    // Use route length if available, otherwise use manual input
+    const projectLengthNum = routeLength > 0 ? routeLength : Number(formData.projectLength)
     if (isNaN(projectLengthNum) || projectLengthNum < 1 || projectLengthNum > 1000) {
-      alert("Please enter a valid project length between 1 and 1000 km")
+      alert("Please enter a valid project length between 1 and 1000 km, or draw a route on the map")
       return
     }
     
-    onSubmit?.(formData)
+    // Include route data in submission
+    onSubmit?.({
+      ...formData,
+      routeCoordinates: routeCoordinates.length > 0 ? routeCoordinates : undefined,
+      terrainProfile: terrainProfile.length > 0 ? terrainProfile : undefined,
+      projectLength: projectLengthNum,
+    })
   }
 
   const updateField = (field: string, value: string | boolean) => {
@@ -73,8 +87,36 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
     }
   }
 
+  const handleRouteComplete = (route: Array<{ lat: number; lon: number }>, lengthKm: number, map: any) => {
+    setRouteCoordinates(route)
+    setRouteLength(lengthKm)
+    setMapInstance(map)
+    // Update project length field
+    setFormData(prev => ({ ...prev, projectLength: lengthKm.toFixed(2) }))
+  }
+  
+  const handleTerrainComplete = (profile: Array<{ distance_m: number; elevation_m: number }>) => {
+    setTerrainProfile(profile)
+  }
+
   return (
-    <Card className="bg-card border-border">
+    <div className="space-y-6">
+      {/* Route Map Section */}
+      <RouteMap 
+        onRouteComplete={handleRouteComplete}
+        onMapReady={setMapInstance}
+      />
+      
+      {/* Terrain Sampler Section */}
+      {routeCoordinates.length >= 2 && mapInstance && (
+        <TerrainSampler
+          routePoints={routeCoordinates}
+          mapInstance={mapInstance}
+          onTerrainComplete={handleTerrainComplete}
+        />
+      )}
+      
+      <Card className="bg-card border-border">
       <CardHeader>
         <CardTitle className="text-foreground">Tower Optimization Parameters</CardTitle>
         <CardDescription>Configure the design parameters for your transmission tower optimization</CardDescription>
@@ -197,9 +239,12 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
                 value={formData.projectLength}
                 onChange={(e) => updateField("projectLength", e.target.value)}
                 className="bg-background border-input"
+                disabled={routeLength > 0}
               />
               <p className="text-xs text-muted-foreground">
-                Planning input for line-level metrics (not sent to optimizer)
+                {routeLength > 0 
+                  ? `Auto-filled from route: ${routeLength.toFixed(2)} km`
+                  : "Optional: Project length for line-level estimates. Draw a route on the map above to auto-fill this."}
               </p>
             </div>
           </div>
@@ -250,5 +295,6 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
         </form>
       </CardContent>
     </Card>
+    </div>
   )
 }

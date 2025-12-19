@@ -25,6 +25,7 @@ from regional_risk_registry import get_regional_risks
 from dominant_risk_advisory import generate_risk_advisories
 from intelligence.intelligence_manager import IntelligenceManager
 from backend.services.design_validator import validate_design_bounds
+from backend.services.canonical_converter import convert_to_canonical
 
 
 def create_codal_engine(standard: DesignStandard):
@@ -165,6 +166,77 @@ def run_optimization(input_dict: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Dictionary with all optimization results
     """
+    # TASK 5.3 & 5.4: Check if route optimization should be used
+    route_coordinates = input_dict.get('route_coordinates')
+    terrain_profile = input_dict.get('terrain_profile')
+    project_length_km = input_dict.get('project_length_km')
+    
+    # If route data is provided, use route optimization (TASK 5.4)
+    if route_coordinates and len(route_coordinates) >= 2:
+        from backend.services.route_optimizer import optimize_route
+        
+        # Convert terrain_profile format if provided
+        # Frontend sends: [{ "x": distance_m, "z": elevation_m }]
+        # Backend expects: route_coordinates with elevation_m and distance_m
+        if terrain_profile:
+            # Merge terrain profile into route coordinates
+            for i, coord in enumerate(route_coordinates):
+                # Find matching terrain point (closest by distance)
+                if terrain_profile:
+                    # Simple interpolation: find closest terrain point
+                    min_dist = float('inf')
+                    closest_elevation = 0.0
+                    for tp in terrain_profile:
+                        # Calculate distance from route point to terrain point
+                        # For now, assume terrain points align with route points
+                        if i < len(terrain_profile):
+                            closest_elevation = terrain_profile[i].get('z', 0.0)
+                            break
+                    coord['elevation_m'] = closest_elevation
+                    if 'distance_m' not in coord:
+                        coord['distance_m'] = terrain_profile[i].get('x', 0.0) if i < len(terrain_profile) else 0.0
+        
+        # Calculate project length from route if not provided
+        if not project_length_km:
+            # Calculate from route coordinates using Haversine
+            from math import radians, sin, cos, sqrt, atan2
+            total_distance = 0.0
+            for i in range(len(route_coordinates) - 1):
+                lat1, lon1 = route_coordinates[i].get('lat', 0), route_coordinates[i].get('lon', 0)
+                lat2, lon2 = route_coordinates[i+1].get('lat', 0), route_coordinates[i+1].get('lon', 0)
+                R = 6371  # Earth radius in km
+                dlat = radians(lat2 - lat1)
+                dlon = radians(lon2 - lon1)
+                a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
+                c = 2 * atan2(sqrt(a), sqrt(1-a))
+                total_distance += R * c
+            project_length_km = total_distance
+        
+        # Use route optimization
+        design_options = {
+            "location": input_dict.get('location'),
+            "voltage": input_dict.get('voltage'),
+            "terrain": input_dict.get('terrain'),
+            "wind": input_dict.get('wind'),
+            "soil": input_dict.get('soil'),
+            "tower": input_dict.get('tower'),
+            "design_for_higher_wind": input_dict.get('design_for_higher_wind', False),
+            "include_ice_load": input_dict.get('include_ice_load', False),
+            "conservative_foundation": input_dict.get('conservative_foundation', False),
+            "high_reliability": input_dict.get('high_reliability', False),
+        }
+        
+        result = optimize_route(
+            route_coordinates=route_coordinates,
+            project_length_km=project_length_km,
+            design_options=design_options,
+            row_mode=input_dict.get('row_mode', 'urban_private'),
+            terrain_profile=terrain_profile,  # TASK 5.3: Pass terrain profile
+        )
+        
+        return result.dict()
+    
+    # Otherwise, use single-tower optimization (existing logic)
     # Parse inputs
     inputs, tower_type = parse_input_dict(input_dict)
     
@@ -235,161 +307,22 @@ def run_optimization(input_dict: Dict[str, Any]) -> Dict[str, Any]:
             # If already unsafe, append bounds violations
             result.safety_violations.extend(bounds_violations)
     
-    # Build response
-    # Initialize warnings list - will be populated for safe designs, empty for unsafe
-    response = {
-        'project_context': {
-            'location': inputs.project_location,
-            'governing_standard': inputs.governing_standard.value,
-            'voltage_level': inputs.voltage_level,
-            'wind_zone': inputs.wind_zone.value,
-            'terrain': inputs.terrain_type.value,
-            'soil': inputs.soil_category.value,
-        },
-        'optimized_design': {
-            'tower_type': result.best_design.tower_type.value,
-            'tower_height': round(result.best_design.tower_height, 2),
-            'base_width': round(result.best_design.base_width, 2),
-            'span_length': round(result.best_design.span_length, 2),
-            'foundation_type': result.best_design.foundation_type.value,
-            'footing_length': round(result.best_design.footing_length, 2),
-            'footing_width': round(result.best_design.footing_width, 2),
-            'footing_depth': round(result.best_design.footing_depth, 2),
-        },
-        'safety_status': {
-            'is_safe': result.is_safe,
-            'violations': result.safety_violations if not result.is_safe else [],
-        },
-        'warnings': [],  # Initialize as empty list - populated for safe designs only
-        'optimization_info': {
-            'iterations': result.iterations,
-            'converged': result.convergence_info.get('converged', False),
-        },
-    }
+    # Convert to canonical format
+    # Get project length if provided (for line-level estimates)
+    project_length_km = input_dict.get('project_length_km')
     
-    # Add cost breakdown if safe
-    if result.is_safe:
-        _, cost_breakdown = calculate_cost_with_breakdown(result.best_design, inputs)
-        
-        # Calculate line-level economics
-        towers_per_km = 1000.0 / result.best_design.span_length
-        row_corridor_cost_per_km = calculate_row_corridor_cost_per_km(inputs)
-        row_tower_footprint_per_km = cost_breakdown['land_cost'] * towers_per_km
-        per_km_cost = (cost_breakdown['total_cost'] * towers_per_km) + row_corridor_cost_per_km
-        
-        # Currency conversion
-        intelligence_manager = IntelligenceManager()
-        display_currency = "USD"
-        exchange_rate = None
-        currency_version = None
-        
-        if inputs.project_location.lower() in ["india", "indian"]:
-            display_currency = "INR"
-            exchange_rate = intelligence_manager.get_currency_rate("USD", "INR")
-            currency_version = intelligence_manager.get_currency_version()
-            if exchange_rate is None:
-                exchange_rate = 83.0
-                currency_version = "default"
-        
-        # Format costs
-        if display_currency == "INR" and exchange_rate:
-            cost_multiplier = exchange_rate
-            currency_symbol = "₹"
-        else:
-            cost_multiplier = 1.0
-            currency_symbol = "$"
-        
-        response['cost_breakdown'] = {
-            'steel_cost': round(cost_breakdown['steel_cost'] * cost_multiplier, 2),
-            'foundation_cost': round(cost_breakdown['foundation_cost'] * cost_multiplier, 2),
-            'erection_cost': round(cost_breakdown['erection_cost'] * cost_multiplier, 2),
-            'land_cost': round(cost_breakdown['land_cost'] * cost_multiplier, 2),
-            'total_cost': round(cost_breakdown['total_cost'] * cost_multiplier, 2),
-            'currency': display_currency,
-            'currency_symbol': currency_symbol,
-            'exchange_rate': exchange_rate,
-            'currency_version': currency_version,
-        }
-        
-        if 'multipliers' in cost_breakdown:
-            response['cost_breakdown']['regional_multipliers'] = {
-                'steel': cost_breakdown['multipliers']['steel'],
-                'materials': cost_breakdown['multipliers']['materials'],
-                'labor': cost_breakdown['multipliers']['labor'],
-                'access': cost_breakdown['multipliers']['access'],
-                'region': cost_breakdown['region'],
-            }
-        
-        response['line_level_summary'] = {
-            'span_length': round(result.best_design.span_length, 2),
-            'towers_per_km': round(towers_per_km, 3),
-            'cost_per_tower': round(cost_breakdown['total_cost'] * cost_multiplier, 2),
-            'row_corridor_cost_per_km': round(row_corridor_cost_per_km * cost_multiplier, 2),
-            'row_tower_footprint_per_km': round(row_tower_footprint_per_km * cost_multiplier, 2),
-            'total_cost_per_km': round(per_km_cost * cost_multiplier, 2),
-            'currency': display_currency,
-            'currency_symbol': currency_symbol,
-        }
-        
-        # Constructability warnings
-        # Convert ConstructabilityWarning objects to JSON-serializable dictionaries
-        constructability_warnings = check_constructability(result.best_design, inputs)
-        response['warnings'] = [
-            w.to_dict() if hasattr(w, 'to_dict') else {'type': 'constructability', 'message': str(w)}
-            for w in constructability_warnings
-        ]
-        
-        # Cost sanity check
-        is_reasonable, warning = check_cost_sanity(
-            cost_breakdown['total_cost'],
-            inputs.voltage_level,
-            result.best_design.tower_type.value
-        )
-        if not is_reasonable:
-            response['warnings'].append({
-                'type': 'cost_anomaly',
-                'message': warning,
-            })
+    # Get route coordinates if provided (for map-based placement)
+    route_coordinates = input_dict.get('route_coordinates')
     
-    # Regional risks
-    regional_risks = get_regional_risks(inputs.project_location)
-    response['regional_risks'] = regional_risks if regional_risks else []
+    # Convert to canonical OptimizationResult
+    canonical_result = convert_to_canonical(
+        result=result,
+        inputs=inputs,
+        project_length_km=project_length_km,
+        route_coordinates=route_coordinates,
+        row_mode=input_dict.get('row_mode', 'urban_private'),
+    )
     
-    # Dominant risk advisories
-    risk_advisories = generate_risk_advisories(inputs)
-    response['risk_advisories'] = [
-        {
-            'risk_name': adv.risk.name,
-            'risk_category': adv.risk.category,
-            'reason': adv.reason,
-            'not_evaluated': adv.not_evaluated,
-            'suggested_action': adv.suggested_action,
-        }
-        for adv in risk_advisories
-    ]
-    
-    # Reference data status
-    intelligence_manager = IntelligenceManager()
-    ref_status = intelligence_manager.get_reference_status()
-    response['reference_data_status'] = {
-        'cost_index': ref_status.get('cost_index', 'N/A'),
-        'risk_registry': ref_status.get('risk_alert', 'N/A'),
-        'code_revision': ref_status.get('code_revision', 'N/A'),
-        'currency_rate': ref_status.get('currency_rate', 'N/A'),
-    }
-    
-    # Design scenarios applied
-    active_scenarios = []
-    if inputs.design_for_higher_wind:
-        active_scenarios.append(f"Higher wind design (wind zone upgraded to {inputs.wind_zone.value})")
-    if inputs.include_ice_load:
-        active_scenarios.append("Ice accretion load case included")
-    if inputs.high_reliability:
-        active_scenarios.append("High reliability design mode (increased safety factors)")
-    if inputs.conservative_foundation:
-        active_scenarios.append("Conservative foundation design mode (stricter footing limits)")
-    
-    response['design_scenarios_applied'] = active_scenarios if active_scenarios else ["No additional design scenarios applied."]
-    
-    return response
+    # Convert Pydantic model to dict for JSON serialization
+    return canonical_result.dict()
 

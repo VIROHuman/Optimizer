@@ -107,7 +107,16 @@ REGIONAL_LAND_RATES = {
 
 
 # ============================================================================
-# REGIONAL ROW CORRIDOR WIDTHS (meters)
+# ROW MODE CONFIGURATION
+# Controls corridor width and compensation multiplier
+ROW_MODE_CONFIG = {
+    "government_corridor": {"width_m": 35, "multiplier": 0.2},
+    "rural_private": {"width_m": 45, "multiplier": 0.6},
+    "urban_private": {"width_m": 60, "multiplier": 1.0},
+    "mixed": {"width_m": 50, "multiplier": 0.8},
+}
+
+# REGIONAL ROW CORRIDOR WIDTHS (meters) - Base widths, modified by row_mode
 # ============================================================================
 
 REGIONAL_CORRIDOR_WIDTHS = {
@@ -480,7 +489,8 @@ def _calculate_land_cost(
 
 
 def calculate_row_corridor_cost_per_km(
-    inputs: OptimizationInputs
+    inputs: OptimizationInputs,
+    row_mode: str = "urban_private"
 ) -> float:
     """
     Calculate ROW corridor cost per kilometer.
@@ -492,20 +502,26 @@ def calculate_row_corridor_cost_per_km(
     - Agricultural loss
     
     Formula:
-      ROW_corridor_cost_per_km = corridor_width × land_rate × 1000
+      ROW_corridor_cost_per_km = corridor_width × land_rate × multiplier × 1000
     
     Args:
         inputs: OptimizationInputs with project location
+        row_mode: ROW mode ("government_corridor", "rural_private", "urban_private", "mixed")
         
     Returns:
         ROW corridor cost per kilometer in USD/km
     """
     region = _get_region_from_location(inputs.project_location)
-    corridor_width = REGIONAL_CORRIDOR_WIDTHS.get(region, REGIONAL_CORRIDOR_WIDTHS["default"])
+    base_corridor_width = REGIONAL_CORRIDOR_WIDTHS.get(region, REGIONAL_CORRIDOR_WIDTHS["default"])
     land_rate = REGIONAL_LAND_RATES.get(region, REGIONAL_LAND_RATES["default"])
     
+    # Apply row_mode configuration
+    row_config = ROW_MODE_CONFIG.get(row_mode, ROW_MODE_CONFIG["urban_private"])
+    corridor_width = row_config["width_m"]
+    multiplier = row_config["multiplier"]
+    
     # ROW corridor cost per kilometer
-    row_corridor_cost_per_km = corridor_width * land_rate * 1000.0
+    row_corridor_cost_per_km = corridor_width * land_rate * multiplier * 1000.0
     
     return row_corridor_cost_per_km
 

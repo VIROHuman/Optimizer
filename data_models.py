@@ -61,7 +61,7 @@ class WindZone(Enum):
     ZONE_4 = "zone_4"  # Very high wind
 
 
-@dataclass
+@dataclass(frozen=True)
 class TowerDesign:
     """
     Complete transmission tower design specification.
@@ -91,7 +91,7 @@ class TowerDesign:
         pass  # Removed raises - bounds are enforced in optimizer, violations reported via SafetyCheckResult
 
 
-@dataclass
+@dataclass(frozen=True)
 class OptimizationInputs:
     """
     User-provided inputs for optimization run.
@@ -114,7 +114,7 @@ class OptimizationInputs:
     conservative_foundation: bool = False  # Stricter footing limits
 
 
-@dataclass
+@dataclass(frozen=True)
 class SafetyCheckResult:
     """
     Result of codal safety check.
@@ -130,7 +130,7 @@ class SafetyCheckResult:
             self.violations = []
 
 
-@dataclass
+@dataclass(frozen=True)
 class OptimizationResult:
     """
     Final result from PSO optimization run.
