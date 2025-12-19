@@ -191,6 +191,27 @@ class PSOOptimizer:
                 if recent_improvement < 1000.0:  # Less than $1000/km improvement in last 20 iterations
                     break
         
+        # Defensive check: Ensure best design is within bounds
+        # This should never trigger if clamping works correctly, but serves as safety net
+        if (self.global_best_design.span_length < self.bounds['span'][0] or 
+            self.global_best_design.span_length > self.bounds['span'][1]):
+            # Log warning and clamp (should never happen)
+            print(f"WARNING: Best design span ({self.global_best_design.span_length:.2f} m) "
+                  f"outside bounds [{self.bounds['span'][0]}, {self.bounds['span'][1]}]. Clamping.")
+            clamped_span = max(self.bounds['span'][0], min(self.bounds['span'][1], self.global_best_design.span_length))
+            # Create new design with clamped span
+            from data_models import TowerDesign
+            self.global_best_design = TowerDesign(
+                tower_type=self.global_best_design.tower_type,
+                tower_height=self.global_best_design.tower_height,
+                base_width=self.global_best_design.base_width,
+                span_length=clamped_span,
+                foundation_type=self.global_best_design.foundation_type,
+                footing_length=self.global_best_design.footing_length,
+                footing_width=self.global_best_design.footing_width,
+                footing_depth=self.global_best_design.footing_depth,
+            )
+        
         # Final safety check on best design
         final_safety = self.codal_engine.is_design_safe(
             self.global_best_design,
@@ -307,13 +328,18 @@ class PSOOptimizer:
         """
         height, base_width, span, footing_length, footing_width, footing_depth = position
         
-        # Clamp to bounds
+        # Clamp to bounds - CRITICAL: This ensures all designs are within valid ranges
+        # The optimizer MUST enforce bounds here, not rely on post-validation
         # Enforce voltage-based minimum height
         height = max(self.voltage_min_height, min(self.bounds['height'][1], height))
         base_width_min = height * 0.25
         base_width_max = height * 0.40
         base_width = max(base_width_min, min(base_width_max, base_width))
+        
+        # CRITICAL: Span must be clamped to bounds (250-450 m by default)
+        # This is enforced here, not in post-validation
         span = max(self.bounds['span'][0], min(self.bounds['span'][1], span))
+        
         footing_length = max(self.bounds['footing_length'][0], min(self.bounds['footing_length'][1], footing_length))
         footing_width = max(self.bounds['footing_width'][0], min(self.bounds['footing_width'][1], footing_width))
         footing_depth = max(self.bounds['footing_depth'][0], min(self.bounds['footing_depth'][1], footing_depth))

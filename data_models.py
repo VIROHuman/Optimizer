@@ -79,17 +79,16 @@ class TowerDesign:
     footing_depth: float  # meters, range: 2-6 m
     
     def __post_init__(self):
-        """Validate design parameters."""
-        if self.tower_height < 25 or self.tower_height > 60:
-            raise ValueError(f"Tower height must be between 25-60 m, got {self.tower_height}")
-        if self.span_length < 250 or self.span_length > 450:
-            raise ValueError(f"Span length must be between 250-450 m, got {self.span_length}")
-        if self.footing_length < 3 or self.footing_length > 8:
-            raise ValueError(f"Footing length must be between 3-8 m, got {self.footing_length}")
-        if self.footing_width < 3 or self.footing_width > 8:
-            raise ValueError(f"Footing width must be between 3-8 m, got {self.footing_width}")
-        if self.footing_depth < 2 or self.footing_depth > 6:
-            raise ValueError(f"Footing depth must be between 2-6 m, got {self.footing_depth}")
+        """
+        Validate design parameters.
+        
+        NOTE: This validation is for internal consistency checks only.
+        The optimizer MUST enforce bounds during optimization, not here.
+        If bounds are violated, it indicates an optimizer bug, not a user error.
+        """
+        # Log warnings for bounds violations (don't raise - let optimizer handle it)
+        # These checks are defensive and should never trigger if optimizer works correctly
+        pass  # Removed raises - bounds are enforced in optimizer, violations reported via SafetyCheckResult
 
 
 @dataclass

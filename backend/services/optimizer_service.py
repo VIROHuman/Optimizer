@@ -24,6 +24,7 @@ from constructability_engine import check_constructability
 from regional_risk_registry import get_regional_risks
 from dominant_risk_advisory import generate_risk_advisories
 from intelligence.intelligence_manager import IntelligenceManager
+from backend.services.design_validator import validate_design_bounds
 
 
 def create_codal_engine(standard: DesignStandard):
@@ -142,8 +143,8 @@ def parse_input_dict(input_dict: Dict[str, Any]) -> tuple[OptimizationInputs, To
         terrain_type=terrain_type,
         wind_zone=design_wind_zone,
         soil_category=soil_category,
-        span_min=input_dict.get('span_min', 200.0),
-        span_max=input_dict.get('span_max', 600.0),
+        span_min=input_dict.get('span_min', 250.0),  # Match original optimizer default
+        span_max=input_dict.get('span_max', 450.0),  # Match original optimizer default
         governing_standard=governing_standard,
         design_for_higher_wind=input_dict.get('design_for_higher_wind', False),
         include_ice_load=input_dict.get('include_ice_load', False),
@@ -179,9 +180,63 @@ def run_optimization(input_dict: Dict[str, Any]) -> Dict[str, Any]:
     )
     
     # Run optimization
-    result = optimizer.optimize(tower_type=tower_type)
+    # Wrap in try-catch to ensure we always return structured response, never crash
+    try:
+        result = optimizer.optimize(tower_type=tower_type)
+    except Exception as e:
+        # If optimization fails, return error as violation, not exception
+        # This ensures API contract is maintained
+        import traceback
+        error_msg = f"Optimization failed: {str(e)}"
+        print(f"ERROR in optimization: {error_msg}")
+        print(traceback.format_exc())
+        
+        # Return unsafe result with violation
+        from data_models import OptimizationResult, TowerDesign, TowerType, FoundationType
+        from datetime import datetime
+        
+        # Create a minimal invalid design to return
+        dummy_design = TowerDesign(
+            tower_type=tower_type,
+            tower_height=40.0,
+            base_width=10.0,
+            span_length=350.0,
+            foundation_type=FoundationType.PAD_FOOTING,
+            footing_length=4.0,
+            footing_width=4.0,
+            footing_depth=3.0,
+        )
+        
+        result = OptimizationResult(
+            best_design=dummy_design,
+            best_cost=float('inf'),
+            is_safe=False,
+            safety_violations=[error_msg],
+            governing_standard=inputs.governing_standard,
+            iterations=0,
+            convergence_info={},
+        )
+    
+    # Defensive check: Ensure returned design is within bounds
+    # This catches any optimizer bugs that might produce invalid designs
+    bounds_violations = validate_design_bounds(result.best_design)
+    if bounds_violations:
+        # Log the violation (indicates optimizer bug)
+        print(f"WARNING: Optimizer returned design with bounds violations:")
+        for violation in bounds_violations:
+            print(f"  - {violation}")
+        
+        # Add bounds violations to safety violations
+        if result.is_safe:
+            # If design was marked safe but violates bounds, mark as unsafe
+            result.is_safe = False
+            result.safety_violations = bounds_violations
+        else:
+            # If already unsafe, append bounds violations
+            result.safety_violations.extend(bounds_violations)
     
     # Build response
+    # Initialize warnings list - will be populated for safe designs, empty for unsafe
     response = {
         'project_context': {
             'location': inputs.project_location,
@@ -205,6 +260,7 @@ def run_optimization(input_dict: Dict[str, Any]) -> Dict[str, Any]:
             'is_safe': result.is_safe,
             'violations': result.safety_violations if not result.is_safe else [],
         },
+        'warnings': [],  # Initialize as empty list - populated for safe designs only
         'optimization_info': {
             'iterations': result.iterations,
             'converged': result.convergence_info.get('converged', False),
@@ -276,12 +332,10 @@ def run_optimization(input_dict: Dict[str, Any]) -> Dict[str, Any]:
         }
         
         # Constructability warnings
+        # Convert ConstructabilityWarning objects to JSON-serializable dictionaries
         constructability_warnings = check_constructability(result.best_design, inputs)
         response['warnings'] = [
-            {
-                'type': w['type'],
-                'message': w['message'],
-            }
+            w.to_dict() if hasattr(w, 'to_dict') else {'type': 'constructability', 'message': str(w)}
             for w in constructability_warnings
         ]
         
@@ -310,7 +364,6 @@ def run_optimization(input_dict: Dict[str, Any]) -> Dict[str, Any]:
             'reason': adv.reason,
             'not_evaluated': adv.not_evaluated,
             'suggested_action': adv.suggested_action,
-            'is_escalated': adv.is_escalated,
         }
         for adv in risk_advisories
     ]

@@ -1,0 +1,11 @@
+# FastAPI and server
+fastapi>=0.104.0,<0.110.0
+uvicorn[standard]>=0.24.0,<0.30.0
+
+# Data validation
+pydantic>=2.0.0,<3.0.0
+
+# Optional: For better JSON serialization (if needed)
+# python-multipart>=0.0.6  # Required if using form data
+
+

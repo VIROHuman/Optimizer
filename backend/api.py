@@ -5,10 +5,10 @@ Provides HTTP API access to optimization engine.
 CLI (main.py) continues to work independently.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 import sys
 import os
 
@@ -17,6 +17,8 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
+from backend.models.request import OptimizationRequest
+from backend.models.response import OptimizationResponse
 from backend.services.optimizer_service import run_optimization
 
 app = FastAPI(
@@ -40,37 +42,20 @@ app.add_middleware(
 )
 
 
-class OptimizationRequest(BaseModel):
-    """Request model for optimization endpoint."""
-    location: str
-    voltage: int
-    terrain: str
-    wind: str
-    soil: str
-    tower: str
-    design_for_higher_wind: bool = False
-    include_ice_load: bool = False
-    conservative_foundation: bool = False
-    high_reliability: bool = False
-    span_min: Optional[float] = 200.0
-    span_max: Optional[float] = 600.0
-    particles: Optional[int] = 30
-    iterations: Optional[int] = 100
-
-
-class OptimizationResponse(BaseModel):
-    """Response model for optimization endpoint."""
-    project_context: Dict[str, Any]
-    optimized_design: Dict[str, Any]
-    cost_breakdown: Optional[Dict[str, Any]] = None
-    line_level_summary: Optional[Dict[str, Any]] = None
-    safety_status: Dict[str, Any]
-    warnings: list = []
-    regional_risks: list = []
-    risk_advisories: list = []
-    reference_data_status: Dict[str, str]
-    design_scenarios_applied: list
-    optimization_info: Dict[str, Any]
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle Pydantic validation errors with clear messages."""
+    errors = exc.errors()
+    error_messages = []
+    for error in errors:
+        field = " -> ".join(str(loc) for loc in error["loc"])
+        message = error["msg"]
+        error_messages.append(f"{field}: {message}")
+    
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "; ".join(error_messages)}
+    )
 
 
 @app.get("/")
@@ -104,18 +89,118 @@ async def optimize(request: OptimizationRequest):
         OptimizationResponse with results
     """
     try:
-        # Convert request to dict
-        input_dict = request.dict()
+        # Log received payload for debugging
+        print("Received payload:", request.dict())
+        
+        # Convert request to dict format expected by service
+        input_dict = {
+            "location": request.location,
+            "voltage": request.voltage,
+            "terrain": request.terrain,
+            "wind": request.wind,
+            "soil": request.soil,
+            "tower": request.tower,
+            "design_for_higher_wind": request.flags.design_for_higher_wind,
+            "include_ice_load": request.flags.include_ice_load,
+            "conservative_foundation": request.flags.conservative_foundation,
+            "high_reliability": False,  # Not in flags, default to False
+        }
         
         # Run optimization
+        # The service is guaranteed to return a structured response, never raise
         result = run_optimization(input_dict)
         
-        return OptimizationResponse(**result)
+        # Get codal engine name for display
+        from backend.services.optimizer_service import create_codal_engine
+        from location_to_code import get_governing_standard
+        governing_standard = get_governing_standard(request.location)
+        codal_engine = create_codal_engine(governing_standard)
+        codal_engine_name = codal_engine.standard_name
+        
+        # Convert service result to response model format
+        # Pass through ALL fields from service to maintain complete output mapping
+        design = result["optimized_design"]
+        
+        cost = None
+        if result.get("cost_breakdown"):
+            cost = result["cost_breakdown"]
+        
+        safety = {
+            "is_safe": result["safety_status"]["is_safe"],
+            "violations": result["safety_status"].get("violations", []),
+        }
+        
+        # Preserve warning structure (dict with type, message, severity) instead of converting to strings
+        warnings = result.get("warnings", [])
+        # Ensure all warnings are dicts (already converted in service, but defensive check)
+        warnings = [
+            w if isinstance(w, dict) else {"type": "constructability", "message": str(w)}
+            for w in warnings
+        ]
+        
+        advisories = result.get("risk_advisories", [])
+        
+        response = OptimizationResponse(
+            design=design,
+            cost=cost,
+            safety=safety,
+            warnings=warnings,
+            advisories=advisories,
+            project_context=result.get("project_context"),
+            line_level_summary=result.get("line_level_summary"),
+            regional_risks=result.get("regional_risks", []),
+            reference_data_status=result.get("reference_data_status"),
+            design_scenarios_applied=result.get("design_scenarios_applied", []),
+            optimization_info=result.get("optimization_info"),
+            codal_engine_name=codal_engine_name,
+        )
+        
+        return response
         
     except ValueError as e:
+        # Input validation errors (e.g., invalid enum values) - return 400
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        # Unexpected errors - log and return structured error response
+        import traceback
+        error_detail = str(e)
+        print(f"ERROR in API endpoint: {error_detail}")
+        print(traceback.format_exc())
+        
+        # Return error as unsafe design with violation, not HTTP exception
+        # This maintains API contract - always returns OptimizationResponse
+        error_design = {
+            "tower_type": "suspension",
+            "tower_height": 40.0,
+            "base_width": 10.0,
+            "span_length": 350.0,
+            "foundation_type": "pad_footing",
+            "footing_length": 4.0,
+            "footing_width": 4.0,
+            "footing_depth": 3.0,
+        }
+        
+        error_safety = {
+            "is_safe": False,
+            "violations": [f"Backend error: {error_detail}"],
+        }
+        
+        error_response = OptimizationResponse(
+            design=error_design,
+            cost=None,
+            safety=error_safety,
+            warnings=[],
+            advisories=[],
+            project_context=None,
+            line_level_summary=None,
+            regional_risks=[],
+            reference_data_status=None,
+            design_scenarios_applied=[],
+            optimization_info=None,
+            codal_engine_name=None,
+        )
+        
+        return error_response
 
 
 if __name__ == "__main__":

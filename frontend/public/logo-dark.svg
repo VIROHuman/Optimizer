@@ -1,0 +1,22 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle with white outline -->
+  <circle cx="24" cy="24" r="23" stroke="white" stroke-width="2" fill="black"/>
+  
+  <!-- Stylized L - left side, angular/lightning bolt style -->
+  <path d="M 14 28 L 14 20 L 18 20 L 18 24 L 22 24 L 22 20 L 18 20" 
+        stroke="white" 
+        stroke-width="2.5" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        fill="white"/>
+  <path d="M 18 24 L 22 24 L 22 28 L 18 28 Z" fill="white"/>
+  
+  <!-- Stylized T - right side, angular/lightning bolt style -->
+  <path d="M 24 20 L 28 20 L 28 24 L 32 24 L 32 20 L 28 20" 
+        stroke="white" 
+        stroke-width="2.5" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        fill="white"/>
+  <path d="M 28 24 L 34 24 L 34 28 L 28 28 Z" fill="white"/>
+</svg>

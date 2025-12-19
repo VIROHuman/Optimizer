@@ -36,6 +36,19 @@ class ConstructabilityWarning:
     
     def __str__(self):
         return self.message
+    
+    def to_dict(self) -> dict:
+        """
+        Convert warning to JSON-serializable dictionary.
+        
+        Returns:
+            Dictionary with type, message, and severity fields
+        """
+        return {
+            "type": "constructability",
+            "message": self.message,
+            "severity": self.severity,
+        }
 
 
 def check_constructability(
