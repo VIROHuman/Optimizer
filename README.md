@@ -33,7 +33,15 @@ They communicate **ONLY** via HTTP APIs. No shared files, no mixed dependencies.
 3. Ensure all project dependencies are available. The backend imports from the parent directory, so make sure you're running from the project root or have the Python path configured correctly.
 
 4. Run the FastAPI server:
+   
+   **From the project root directory:**
    ```bash
+   uvicorn backend.api:app --reload
+   ```
+   
+   **OR from the backend directory:**
+   ```bash
+   cd backend
    uvicorn api:app --reload
    ```
 
@@ -72,6 +80,10 @@ They communicate **ONLY** via HTTP APIs. No shared files, no mixed dependencies.
 
 **Terminal 1 (Backend):**
 ```bash
+# From project root:
+uvicorn backend.api:app --reload
+
+# OR from backend directory:
 cd backend
 uvicorn api:app --reload
 ```
@@ -86,6 +98,10 @@ npm run dev
 
 **Backend (background):**
 ```bash
+# From project root:
+uvicorn backend.api:app --reload &
+
+# OR from backend directory:
 cd backend
 uvicorn api:app --reload &
 ```

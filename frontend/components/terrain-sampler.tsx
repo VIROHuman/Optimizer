@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Mountain, Loader2 } from "lucide-react"
@@ -31,6 +31,7 @@ export default function TerrainSampler({ routePoints, mapInstance, onTerrainComp
   const [terrainProfile, setTerrainProfile] = useState<TerrainPoint[]>([])
   const [isSampling, setIsSampling] = useState(false)
   const [samplingProgress, setSamplingProgress] = useState(0)
+  const tileCacheRef = useRef<Map<string, ImageData>>(new Map())
 
   // Calculate distance between two points (Haversine, in meters)
   const haversineDistanceM = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -73,6 +74,95 @@ export default function TerrainSampler({ routePoints, mapInstance, onTerrainComp
     return interpolated
   }
 
+  // Convert lat/lon to tile coordinates
+  const latLonToTile = (lat: number, lon: number, z: number): { x: number; y: number } => {
+    const n = Math.pow(2, z)
+    const x = Math.floor((lon + 180) / 360 * n)
+    const latRad = (lat * Math.PI) / 180
+    const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n)
+    return { x, y }
+  }
+
+  // Get pixel coordinates within a tile
+  const getPixelCoordinates = (lat: number, lon: number, tileX: number, tileY: number, z: number): { px: number; py: number } => {
+    const n = Math.pow(2, z)
+    const x = (lon + 180) / 360 * n
+    const y = (1 - Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) / 2 * n
+    const px = Math.floor((x - tileX) * 256)
+    const py = Math.floor((y - tileY) * 256)
+    return { px: Math.max(0, Math.min(255, px)), py: Math.max(0, Math.min(255, py)) }
+  }
+
+  // Decode elevation from RGB using Mapbox formula
+  const decodeElevation = (r: number, g: number, b: number): number => {
+    // Mapbox Terrain-RGB formula: elevation_m = -10000 + (R * 256 * 256 + G * 256 + B) * 0.1
+    return -10000 + (r * 256 * 256 + g * 256 + b) * 0.1
+  }
+
+  // Fetch Terrain-RGB tile and get elevation at point
+  const getElevationFromTerrainRGB = async (lat: number, lon: number): Promise<number> => {
+    const z = 14 // Use zoom level 14 for good resolution
+    const tile = latLonToTile(lat, lon, z)
+    const pixel = getPixelCoordinates(lat, lon, tile.x, tile.y, z)
+    const tileKey = `${z}/${tile.x}/${tile.y}`
+
+    // Check cache first
+    if (tileCacheRef.current.has(tileKey)) {
+      const imageData = tileCacheRef.current.get(tileKey)!
+      const pixelIndex = (pixel.py * 256 + pixel.px) * 4
+      const r = imageData.data[pixelIndex]
+      const g = imageData.data[pixelIndex + 1]
+      const b = imageData.data[pixelIndex + 2]
+      return decodeElevation(r, g, b)
+    }
+
+    // Mapbox Terrain-RGB tile URL
+    const accessToken = "pk.eyJ1Ijoidmlyb2h1bWFuIiwiYSI6ImNtamNyaHIxODByZXAzZHJ6bXZkeWp6cnIifQ.13FV1Zte85JWq-NvrSknnw"
+    const tileUrl = `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${tile.x}/${tile.y}.png?access_token=${accessToken}`
+
+    return new Promise((resolve) => {
+      const img = new Image()
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = 256
+        canvas.height = 256
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })
+        
+        if (!ctx) {
+          console.warn(`Failed to get canvas context for tile ${tileKey}`)
+          resolve(0)
+          return
+        }
+
+        ctx.drawImage(img, 0, 0)
+        
+        // Get full image data and cache it
+        const imageData = ctx.getImageData(0, 0, 256, 256)
+        tileCacheRef.current.set(tileKey, imageData)
+        
+        // Get pixel RGB values
+        const pixelIndex = (pixel.py * 256 + pixel.px) * 4
+        const r = imageData.data[pixelIndex]
+        const g = imageData.data[pixelIndex + 1]
+        const b = imageData.data[pixelIndex + 2]
+        
+        // Decode elevation using Mapbox formula
+        const elevation = decodeElevation(r, g, b)
+        resolve(elevation)
+      }
+      
+      img.onerror = () => {
+        console.warn(`Failed to load terrain tile: ${tileKey}`)
+        resolve(0)
+      }
+      
+      // Enable CORS for cross-origin image loading
+      img.crossOrigin = 'anonymous'
+      img.src = tileUrl
+    })
+  }
+
   const sampleTerrain = async () => {
     if (!mapInstance || routePoints.length < 2) {
       alert("Please draw a route first")
@@ -89,14 +179,13 @@ export default function TerrainSampler({ routePoints, mapInstance, onTerrainComp
       const profile: TerrainPoint[] = []
       let cumulativeDistance = 0
 
+      console.log(`Sampling terrain for ${interpolatedPoints.length} points...`)
+
       for (let i = 0; i < interpolatedPoints.length; i++) {
         const point = interpolatedPoints[i]
         
-        // Query terrain elevation at this point
-        const elevation = mapInstance.queryTerrainElevation([point.lon, point.lat])
-        
-        // If elevation is null, try to get from map (may not be available)
-        const elevation_m = elevation !== null ? elevation : 0
+        // Get elevation from Terrain-RGB tiles
+        const elevation_m = await getElevationFromTerrainRGB(point.lat, point.lon)
 
         // Calculate cumulative distance
         if (i > 0) {
@@ -117,10 +206,33 @@ export default function TerrainSampler({ routePoints, mapInstance, onTerrainComp
         // Update progress
         setSamplingProgress((i + 1) / interpolatedPoints.length * 100)
         
-        // Small delay to prevent UI blocking
-        if (i % 10 === 0) {
-          await new Promise(resolve => setTimeout(resolve, 10))
+        // Small delay to prevent rate limiting
+        if (i % 5 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 50))
         }
+      }
+
+      // Validate elevation data
+      const elevations = profile.map(p => p.elevation_m)
+      const minElevation = Math.min(...elevations)
+      const maxElevation = Math.max(...elevations)
+      const avgElevation = elevations.reduce((a, b) => a + b, 0) / elevations.length
+      const allSame = elevations.every(e => Math.abs(e - elevations[0]) < 0.1)
+
+      console.log(`Terrain sampling complete:`)
+      console.log(`  Points sampled: ${profile.length}`)
+      console.log(`  Min elevation: ${minElevation.toFixed(2)} m`)
+      console.log(`  Max elevation: ${maxElevation.toFixed(2)} m`)
+      console.log(`  Avg elevation: ${avgElevation.toFixed(2)} m`)
+      console.log(`  Elevation range: ${(maxElevation - minElevation).toFixed(2)} m`)
+
+      if (allSame) {
+        console.warn(`WARNING: All elevations are identical (${elevations[0].toFixed(2)} m). Terrain sampling may have failed.`)
+        alert(`Warning: All elevation values are identical. Terrain sampling may not be working correctly.`)
+      }
+
+      if (Math.abs(maxElevation - minElevation) < 1) {
+        console.warn(`WARNING: Very small elevation variation (${(maxElevation - minElevation).toFixed(2)} m). Route may be very flat or sampling failed.`)
       }
 
       setTerrainProfile(profile)
@@ -130,7 +242,7 @@ export default function TerrainSampler({ routePoints, mapInstance, onTerrainComp
       }
     } catch (error) {
       console.error("Terrain sampling error:", error)
-      alert("Failed to sample terrain. Using default elevation profile.")
+      alert("Failed to sample terrain. Check console for details.")
       
       // Fallback: create simple profile with zero elevation
       const fallbackProfile: TerrainPoint[] = []
@@ -232,4 +344,5 @@ export default function TerrainSampler({ routePoints, mapInstance, onTerrainComp
     </Card>
   )
 }
+
 

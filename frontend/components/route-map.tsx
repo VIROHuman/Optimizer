@@ -25,6 +25,8 @@ interface RouteMapProps {
 export default function RouteMap({ onRouteComplete, initialRoute, onMapReady }: RouteMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
+  const markersRef = useRef<any[]>([]) // Track Mapbox markers
+  const isDrawingRef = useRef<boolean>(false) // Use ref to track drawing state in click handler
   const [routePoints, setRoutePoints] = useState<RoutePoint[]>(initialRoute || [])
   const [routeLength, setRouteLength] = useState<number>(0)
   const [isDrawing, setIsDrawing] = useState(false)
@@ -86,25 +88,31 @@ export default function RouteMap({ onRouteComplete, initialRoute, onMapReady }: 
 
         // Add click handler for route drawing
         map.on("click", (e: any) => {
-          if (!isDrawing) return
+          // Use ref to get current drawing state (avoids closure issue)
+          if (!isDrawingRef.current) return
 
           const { lng, lat } = e.lngLat
-          const newPoint: RoutePoint = { lat, lon: lng }
-          const updatedPoints = [...routePoints, newPoint]
           
-          setRoutePoints(updatedPoints)
-          
-          // Update route length
-          const length = calculateRouteLength(updatedPoints)
-          setRouteLength(length)
+          // Get current route points from state using functional update
+          setRoutePoints(prevPoints => {
+            const newPoint: RoutePoint = { lat, lon: lng }
+            const updatedPoints = [...prevPoints, newPoint]
+            
+            // Update route length
+            const length = calculateRouteLength(updatedPoints)
+            setRouteLength(length)
 
-          // Add marker
-          new mapboxgl.Marker({ color: "#ef4444" })
-            .setLngLat([lng, lat])
-            .addTo(map)
+            // Add marker and track it
+            const marker = new mapboxgl.Marker({ color: "#ef4444" })
+              .setLngLat([lng, lat])
+              .addTo(map)
+            markersRef.current.push(marker)
 
-          // Update route polyline
-          updateRouteLine(map, updatedPoints)
+            // Update route polyline
+            updateRouteLine(map, updatedPoints)
+            
+            return updatedPoints
+          })
         })
 
         map.on("load", () => {
@@ -112,9 +120,10 @@ export default function RouteMap({ onRouteComplete, initialRoute, onMapReady }: 
           if (initialRoute && initialRoute.length > 0) {
             updateRouteLine(map, initialRoute)
             initialRoute.forEach(point => {
-              new mapboxgl.Marker({ color: "#ef4444" })
+              const marker = new mapboxgl.Marker({ color: "#ef4444" })
                 .setLngLat([point.lon, point.lat])
                 .addTo(map)
+              markersRef.current.push(marker)
             })
           }
         })
@@ -129,6 +138,37 @@ export default function RouteMap({ onRouteComplete, initialRoute, onMapReady }: 
 
     loadMap()
   }, [])
+
+  // Update map interaction mode when drawing state changes
+  useEffect(() => {
+    if (!mapRef.current) return
+
+    const map = mapRef.current
+    const canvas = map.getCanvasContainer()
+
+    if (isDrawing) {
+      // Disable drag/pan when drawing
+      map.dragPan.disable()
+      map.boxZoom.disable()
+      map.dragRotate.disable()
+      // Change cursor to crosshair
+      if (canvas) {
+        canvas.style.cursor = 'crosshair'
+      }
+    } else {
+      // Re-enable drag/pan when not drawing
+      map.dragPan.enable()
+      map.boxZoom.enable()
+      map.dragRotate.enable()
+      // Reset cursor to default
+      if (canvas) {
+        canvas.style.cursor = ''
+      }
+    }
+
+    // Update ref for click handler
+    isDrawingRef.current = isDrawing
+  }, [isDrawing])
 
   // Update route polyline on map
   const updateRouteLine = (map: any, points: RoutePoint[]) => {
@@ -173,23 +213,21 @@ export default function RouteMap({ onRouteComplete, initialRoute, onMapReady }: 
   }
 
   const handleStartDrawing = () => {
-    setIsDrawing(true)
-    setRoutePoints([])
-    setRouteLength(0)
-    
-    // Clear existing route from map
+    // Clear existing route from map first
     if (mapRef.current) {
       if (mapRef.current.getSource("route")) {
         mapRef.current.removeLayer("route")
         mapRef.current.removeSource("route")
       }
-      // Clear markers (simplified - in production, track markers)
-      mapRef.current.eachLayer((layer: any) => {
-        if (layer.id !== "route" && layer.type === "symbol") {
-          // Skip default layers
-        }
-      })
+      // Clear all markers
+      markersRef.current.forEach(marker => marker.remove())
+      markersRef.current = []
     }
+    
+    // Then enable drawing mode
+    setIsDrawing(true)
+    setRoutePoints([])
+    setRouteLength(0)
   }
 
   const handleStopDrawing = () => {
@@ -206,6 +244,9 @@ export default function RouteMap({ onRouteComplete, initialRoute, onMapReady }: 
         mapRef.current.removeLayer("route")
         mapRef.current.removeSource("route")
       }
+      // Clear all markers
+      markersRef.current.forEach(marker => marker.remove())
+      markersRef.current = []
     }
   }
 

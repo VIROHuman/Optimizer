@@ -140,6 +140,8 @@ def optimize_route(
         spans=optimized_spans,
         inputs=inputs,
         project_length_km=project_length_km,
+        row_mode=row_mode,
+        terrain_profile=terrain_profile_parsed,
     )
 
 
@@ -254,6 +256,7 @@ def _aggregate_route_results(
     inputs: OptimizationInputs,
     project_length_km: float,
     row_mode: str = "urban_private",
+    terrain_profile: Optional[List[TerrainPoint]] = None,
 ) -> CanonicalOptimizationResult:
     """Aggregate route-level results into canonical format."""
     from backend.models.canonical import (

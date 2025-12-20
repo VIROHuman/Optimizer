@@ -59,3 +59,4 @@ def calculate_cost_sensitivity_bands(
         "expected_range": f"{lower_bound:.0f} - {upper_bound:.0f}",
     }
 
+
