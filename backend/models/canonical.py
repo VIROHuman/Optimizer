@@ -36,6 +36,7 @@ class TowerResponse(BaseModel):
     body_extension_m: float = Field(..., description="Body extension height")
     total_height_m: float = Field(..., description="Total tower height")
     base_width_m: float = Field(..., description="Tower base width at ground level (meters)")
+    design_reason: Optional[str] = Field(None, description="Why this tower type/placement was selected")
     leg_extensions_m: Optional[Dict[str, float]] = Field(None, description="Per-leg extensions if applicable")
     foundation_type: str = Field(..., description="pad_footing / chimney_footing")
     foundation_dimensions: Dict[str, float] = Field(..., description="length, width, depth in meters")

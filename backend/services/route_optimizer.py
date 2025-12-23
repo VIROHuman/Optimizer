@@ -131,10 +131,10 @@ def optimize_route(
     else:
         logger.info("Span rebalancing rejected due to clearance violations, using original auto-spotter placement")
     
-    # UPGRADE 1: Classify tower types based on route geometry
+    # UPGRADE 1: Classify tower types based on route geometry (geodetic) and voltage
     from backend.services.tower_type_classifier import classify_all_towers
-    tower_classifications = classify_all_towers(tower_positions)
-    logger.info(f"Classified {len(tower_classifications)} towers based on route geometry")
+    tower_classifications = classify_all_towers(tower_positions, inputs.voltage_level)
+    logger.info(f"Classified {len(tower_classifications)} towers based on route geometry and voltage")
     
     # Step 3: Optimize each tower (tower design optimization, not span selection)
     optimized_towers = []
@@ -154,7 +154,7 @@ def optimize_route(
     
     for i, tower_pos in enumerate(tower_positions):
         # UPGRADE 1: Get geometry-derived tower type for this tower
-        geometry_tower_type, _, _ = tower_classifications[i]
+        geometry_tower_type, _, _, _ = tower_classifications[i]
         
         # Create optimizer for this tower (use geometry-derived type)
         optimizer = PSOOptimizer(
@@ -224,8 +224,8 @@ def optimize_route(
                 convergence_info=result.convergence_info,
             )
         
-        # UPGRADE 1: Get geometry-derived tower type and deviation angle
-        geometry_tower_type, deviation_angle_deg, classification_reason = tower_classifications[i]
+        # UPGRADE 1: Get geometry-derived tower type, deviation angle, and reason
+        geometry_tower_type, deviation_angle_deg, classification_reason, distance_since_last_dead_end = tower_classifications[i]
         
         # Get foundation uplift case (from evaluation above)
         foundation_uplift_case = governing_uplift_case if not foundation_safe else None
@@ -284,6 +284,47 @@ def optimize_route(
         from cost_engine import calculate_cost_with_breakdown
         _, cost_breakdown_final = calculate_cost_with_breakdown(result.best_design, inputs)
         
+        # Add transport_cost to breakdown if not present (calculated as 20% of erection_cost)
+        if 'transport_cost' not in cost_breakdown_final:
+            cost_breakdown_final['transport_cost'] = cost_breakdown_final.get('erection_cost', 0.0) * 0.2
+
+        # Apply planning-level scaling for angle/dead-end towers (physics & cost scaling)
+        def _apply_tower_scaling(costs: dict, tower_type: TowerType, deviation: Optional[float], voltage_kv: float) -> dict:
+            scaled = costs.copy()
+            dev = deviation or 0.0
+            if tower_type == TowerType.ANGLE:
+                # Angle towers: Base Weight * 1.5 (Intermediate between Suspension and Dead-End)
+                # This ensures Angle towers are heavier than Suspension but lighter than Dead-End
+                steel_mult = 1.5
+                foundation_mult = 1.3  # Slightly higher foundation cost for angle towers
+                scaled['steel_cost'] *= steel_mult
+                scaled['foundation_cost'] *= foundation_mult
+            elif tower_type == TowerType.DEAD_END:
+                # Voltage-aware scaling bands
+                if voltage_kv >= 765:
+                    steel_mult = 2.2 + 0.6 * min(max(dev / 20.0, 0.0), 1.0)  # 2.2 – 2.8
+                elif voltage_kv >= 400:
+                    steel_mult = 1.8 + 0.5 * min(max(dev / 30.0, 0.0), 1.0)  # 1.8 – 2.3
+                else:
+                    steel_mult = 1.6 + 0.4 * min(max(dev / 35.0, 0.0), 1.0)  # 1.6 – 2.0
+                foundation_mult = 1.4 + 0.3 * min(max(dev / 35.0, 0.0), 1.0)  # 1.4 – 1.7
+                scaled['steel_cost'] *= steel_mult
+                scaled['foundation_cost'] *= foundation_mult
+            # Recompute total cost and derived components (transport remains proportional to erection)
+            # Ensure transport_cost exists (it's calculated as 20% of erection_cost)
+            if 'transport_cost' not in scaled:
+                scaled['transport_cost'] = scaled.get('erection_cost', 0.0) * 0.2
+            scaled['total_cost'] = (
+                scaled['steel_cost']
+                + scaled['foundation_cost']
+                + scaled['erection_cost']
+                + scaled['transport_cost']
+                + scaled.get('land_cost', 0.0)
+            )
+            return scaled
+
+        cost_breakdown_final = _apply_tower_scaling(cost_breakdown_final, geometry_tower_type, deviation_angle_deg, inputs.voltage_level)
+        
         # Convert to canonical tower response
         tower_response = _create_tower_response(
             tower_pos=tower_pos,
@@ -292,6 +333,7 @@ def optimize_route(
             tower_index=i,
             geometry_tower_type=geometry_tower_type,
             deviation_angle_deg=deviation_angle_deg,
+            design_reason=classification_reason,
             cost_breakdown=cost_breakdown_final,
             governing_uplift_case=foundation_uplift_case,
         )
@@ -378,6 +420,7 @@ def _create_tower_response(
     tower_index: int,
     geometry_tower_type=None,
     deviation_angle_deg: Optional[float] = None,
+    design_reason: Optional[str] = None,
     cost_breakdown: Optional[dict] = None,
     governing_uplift_case: Optional[str] = None,
 ) -> TowerResponse:
@@ -423,6 +466,7 @@ def _create_tower_response(
         body_extension_m=design.tower_height * 0.6,
         total_height_m=design.tower_height,
         base_width_m=design.base_width,  # CRITICAL: Tower base width (not footing width)
+        design_reason=design_reason,
         leg_extensions_m=None,
         foundation_type=design.foundation_type.value,
         foundation_dimensions={
@@ -586,20 +630,22 @@ def _aggregate_route_results(
     # If geo_context is missing or unresolved, STOP and return validation error
     
     currency_dict = None
+    geo_location_error = False
+    
     if geo_context:
         from backend.services.geo_resolver import resolve_currency_from_geo
         currency_dict, resolution_mode_currency, currency_explanation = resolve_currency_from_geo(geo_context)
         
-        # Validate that currency was actually resolved
+        # If geo_context exists but currency resolution failed, it's a geolocation derivation error
         if not currency_dict or currency_dict.get("code") is None:
-            raise ValueError(
-                f"Currency resolution failed from geo_context. "
+            geo_location_error = True
+            logger.warning(
+                f"Geolocation derivation error: Currency resolution failed from geo_context. "
                 f"Country: {geo_context.country_code if geo_context else 'Unknown'}. "
-                f"Geo_context must provide valid country information for currency resolution."
+                f"Falling back to default currency (USD for non-India, INR for India)."
             )
     else:
-        # CRITICAL: If geo_context is missing, we cannot determine currency reliably
-        # Only allow fallback if we have route_coordinates to derive country
+        # If geo_context is missing, try to derive from route coordinates
         if route_coordinates and len(route_coordinates) > 0:
             # Try to derive from route coordinates
             from backend.services.location_deriver import derive_location_from_coordinates, reverse_geocode_simple
@@ -626,6 +672,18 @@ def _aggregate_route_results(
                 if currency_dict:
                     currency_dict["resolution_mode"] = "coordinate-derived"
                     currency_dict["resolution_explanation"] = f"Currency derived from route coordinates (country: {country_code})"
+            else:
+                geo_location_error = True
+                logger.warning(
+                    "Geolocation derivation error: Could not determine country from route coordinates. "
+                    "Falling back to default currency (USD for non-India, INR for India)."
+                )
+        else:
+            geo_location_error = True
+            logger.warning(
+                "Geolocation derivation error: geo_context is missing and route_coordinates are not available. "
+                "Falling back to default currency (USD for non-India, INR for India)."
+            )
         
         # If still no currency, check if standard can help (IS → INR only)
         if not currency_dict and inputs.governing_standard.value == "IS":
@@ -636,13 +694,32 @@ def _aggregate_route_results(
                 "resolution_mode": "standard-derived",
                 "resolution_explanation": "Currency derived from governing standard (IS → INR)."
             }
-        
-        # CRITICAL: If still unresolved, raise validation error (NO SILENT DEFAULT)
-        if not currency_dict:
-            raise ValueError(
-                "Currency resolution failed: geo_context is missing or unresolved, "
-                "and route_coordinates do not provide sufficient geographic information. "
-                "Cannot proceed with cost calculation without currency context."
+    
+    # FALLBACK: Default to USD for non-India, INR for India (if standard is IS)
+    if not currency_dict:
+        if inputs.governing_standard.value == "IS":
+            # India: Use INR
+            currency_dict = {
+                "code": "INR",
+                "symbol": "₹",
+                "label": "INR",
+                "resolution_mode": "fallback-standard",
+                "resolution_explanation": "Currency defaulted to INR based on governing standard (IS). "
+                                        + ("Geolocation derivation failed." if geo_location_error else "Geographic context unavailable.")
+            }
+        else:
+            # All other countries: Default to USD
+            currency_dict = {
+                "code": "USD",
+                "symbol": "$",
+                "label": "USD",
+                "resolution_mode": "fallback-default",
+                "resolution_explanation": "Currency defaulted to USD (geographic context unavailable or unresolved). "
+                                        + ("Geolocation derivation failed." if geo_location_error else "")
+            }
+            logger.info(
+                "Currency resolution: Defaulting to USD. "
+                + ("Geolocation derivation failed - could not determine country from coordinates." if geo_location_error else "Geographic context not available.")
             )
     
     currency_code = currency_dict["code"]

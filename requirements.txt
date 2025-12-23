@@ -5,6 +5,9 @@ uvicorn[standard]>=0.24.0,<0.30.0
 # Data validation
 pydantic>=2.0.0,<3.0.0
 
+# Geodetic calculations for route geometry
+pyproj>=3.6.0
+
 # Optional: For better JSON serialization (if needed)
 # python-multipart>=0.0.6  # Required if using form data
 
