@@ -14,6 +14,9 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from enum import Enum
 
+# Import GeographicResolutionResponse directly to avoid forward reference issues
+from backend.models.geo_context import GeographicResolutionResponse
+
 
 class TowerSafetyStatus(str, Enum):
     """Tower safety status."""
@@ -28,12 +31,15 @@ class TowerResponse(BaseModel):
     latitude: Optional[float] = Field(None, description="Latitude (if route has coordinates)")
     longitude: Optional[float] = Field(None, description="Longitude (if route has coordinates)")
     tower_type: str = Field(..., description="suspension / tension / angle / dead_end")
+    deviation_angle_deg: Optional[float] = Field(None, description="Horizontal deviation angle in degrees (geometry-derived)")
     base_height_m: float = Field(..., description="Base height (ground to first cross-arm)")
     body_extension_m: float = Field(..., description="Body extension height")
     total_height_m: float = Field(..., description="Total tower height")
+    base_width_m: float = Field(..., description="Tower base width at ground level (meters)")
     leg_extensions_m: Optional[Dict[str, float]] = Field(None, description="Per-leg extensions if applicable")
     foundation_type: str = Field(..., description="pad_footing / chimney_footing")
     foundation_dimensions: Dict[str, float] = Field(..., description="length, width, depth in meters")
+    governing_uplift_case: Optional[str] = Field(None, description="Governing uplift case if foundation is uplift-governed")
     steel_weight_kg: float = Field(..., description="Steel weight in kg")
     steel_cost: float = Field(..., description="Steel cost")
     foundation_cost: float = Field(..., description="Foundation cost")
@@ -74,6 +80,8 @@ class LineSummaryResponse(BaseModel):
     total_project_cost: float = Field(..., description="Total project cost")
     cost_per_km: float = Field(..., description="Cost per kilometer")
     estimated_towers_for_project_length: Optional[int] = Field(None, description="Estimated towers if project_length_km provided")
+    wind_source: Optional[str] = Field(None, description="Source of wind data (e.g., 'map-derived', 'user-selected')")
+    terrain_source: Optional[str] = Field(None, description="Source of terrain data (e.g., 'elevation-derived', 'user-selected')")
 
 
 class CostBreakdownResponse(BaseModel):
@@ -92,6 +100,8 @@ class SafetySummaryResponse(BaseModel):
     overall_status: str = Field(..., description="SAFE (always SAFE for final designs)")
     governing_risks: List[str] = Field(default_factory=list, description="List of governing risk factors")
     design_scenarios_applied: List[str] = Field(default_factory=list, description="Design scenarios enabled")
+    broken_wire_case: Optional[str] = Field(None, description="Broken wire case status: PASS / GOVERNING / NOT_EVALUATED")
+    foundation_uplift_governed: bool = Field(False, description="Whether foundation is governed by uplift")
 
 
 class ConfidenceResponse(BaseModel):
@@ -105,6 +115,8 @@ class RegionalContextResponse(BaseModel):
     governing_standard: str = Field(..., description="IS / EN / ASCE / IEC")
     dominant_regional_risks: List[str] = Field(default_factory=list, description="Dominant risks for region")
     confidence: ConfidenceResponse = Field(..., description="Confidence score with drivers")
+    wind_source: Optional[str] = Field(None, description="Source of wind zone: 'map-derived' or 'user-selected'")
+    terrain_source: Optional[str] = Field(None, description="Source of terrain classification: 'elevation-derived' or 'user-selected'")
 
 
 class CostSensitivityResponse(BaseModel):
@@ -122,6 +134,13 @@ class CostContextResponse(BaseModel):
     interpretation: str = Field(..., description="Plain-language interpretation of cost")
 
 
+class CurrencyContextResponse(BaseModel):
+    """Currency context for presentation."""
+    code: str = Field(..., description="Currency code (USD, INR, etc.)")
+    symbol: str = Field(..., description="Currency symbol ($, ₹, etc.)")
+    label: str = Field(..., description="Currency label for display")
+
+
 class CanonicalOptimizationResult(BaseModel):
     """
     Canonical OptimizationResult schema.
@@ -137,6 +156,8 @@ class CanonicalOptimizationResult(BaseModel):
     regional_context: RegionalContextResponse = Field(..., description="MANDATORY: Regional context")
     cost_sensitivity: Optional[CostSensitivityResponse] = Field(None, description="Cost sensitivity bands")
     cost_context: Optional[CostContextResponse] = Field(None, description="Cost context (indicative) - explains cost drivers")
+    currency: Optional[CurrencyContextResponse] = Field(None, description="Currency context for presentation (None if unresolved)")
+    geographic_resolution: Optional["GeographicResolutionResponse"] = Field(None, description="Geographic resolution status")
     
     # Legacy compatibility fields (deprecated, use canonical fields above)
     warnings: List[Dict[str, Any]] = Field(default_factory=list, description="Constructability warnings")

@@ -42,7 +42,7 @@ export default function AppLayout({
         {/* Sidebar Header */}
         <div className="h-16 border-b border-border flex items-center px-4 gap-3">
           <Logo width={32} height={32} />
-          {!collapsed && <span className="font-semibold text-foreground truncate">L&T Power</span>}
+          {!collapsed && <span className="font-semibold text-foreground truncate">Larsen & Toubro</span>}
         </div>
 
         {/* Sidebar Navigation */}

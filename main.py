@@ -291,7 +291,7 @@ Example usage:
         codal_engine=codal_engine,
         inputs=inputs,
         num_particles=args.particles,
-        max_iterations=args.iterations,
+        max_iterations=args.iterations, 
     )
     
     # Run optimization

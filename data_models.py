@@ -112,6 +112,7 @@ class OptimizationInputs:
     include_ice_load: bool = False  # Include ice accretion load case
     high_reliability: bool = False  # Increase safety factors
     conservative_foundation: bool = False  # Stricter footing limits
+    include_broken_wire: bool = False  # Include broken-wire (unbalanced load) evaluation
 
 
 @dataclass(frozen=True)

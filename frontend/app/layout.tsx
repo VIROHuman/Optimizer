@@ -9,9 +9,9 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
 
 export const metadata: Metadata = {
-  title: "Transmission Line Design Optimizer",
-  description: "Codal-compliant, physics-based optimization for HV transmission towers",
-  generator: "v0.app",
+  title: "Transmission Line Design Optimizer | Larsen & Toubro",
+  description: "L&T Power - Codal-compliant, physics-based optimization for HV transmission towers",
+  generator: "Larsen & Toubro",
   icons: {
     icon: [
       { url: "/icon-light-32x32.png", media: "(prefers-color-scheme: light)" },

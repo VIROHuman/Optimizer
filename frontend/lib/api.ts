@@ -68,7 +68,6 @@ export function normalizePayload(formData: any) {
   }
   
   const payload: any = {
-    location: formData.location.trim().toLowerCase(),
     voltage: voltage,
     terrain: formData.terrain,
     wind: formData.wind,
@@ -79,6 +78,16 @@ export function normalizePayload(formData: any) {
       include_ice_load: !!formData.flags.include_ice_load,
       conservative_foundation: !!formData.flags.conservative_foundation,
     },
+  }
+  
+  // Add geo_context if provided (map-driven geographic resolution)
+  if (formData.geo_context) {
+    payload.geo_context = {
+      country_code: formData.geo_context.country_code,
+      country_name: formData.geo_context.country_name,
+      state: formData.geo_context.state,
+      resolution_mode: formData.geo_context.resolution_mode,
+    }
   }
   
   // Add project_length_km if provided (now sent to backend for canonical format)

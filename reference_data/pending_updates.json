@@ -1,3 +1,74 @@
 {
-  "pending_updates": []
+  "pending_updates": [
+    {
+      "data_id": "USD_INR_20251223",
+      "data_type": "currency_rate",
+      "status": "PENDING",
+      "summary": "USD/INR: 89.70 (Source: Yahoo Finance)",
+      "metadata": {
+        "rate": "89.7",
+        "source": "Yahoo Finance",
+        "timestamp": "2025-12-23T10:42:15.221816",
+        "date": "2025-12-23",
+        "data_summary": "USD/INR: 89.70 (Source: Yahoo Finance)"
+      },
+      "requested_at": "2025-12-23T10:42:24.143941",
+      "approved_by": null,
+      "approved_at": null
+    },
+    {
+      "data_id": "seismic_india_20251223",
+      "data_type": "risk_alert",
+      "status": "PENDING",
+      "summary": "seismic alert for india: moderate severity",
+      "metadata": {
+        "risk_type": "seismic",
+        "region": "india",
+        "severity": "moderate",
+        "source": "USGS",
+        "description": "Recent seismic activity: M5.1 earthquake detected",
+        "timestamp": "2025-12-23T10:42:23.760039",
+        "data_summary": "seismic alert for india: moderate severity"
+      },
+      "requested_at": "2025-12-23T10:42:24.143941",
+      "approved_by": null,
+      "approved_at": null
+    },
+    {
+      "data_id": "seismic_europe_20251223",
+      "data_type": "risk_alert",
+      "status": "PENDING",
+      "summary": "seismic alert for europe: moderate severity",
+      "metadata": {
+        "risk_type": "seismic",
+        "region": "europe",
+        "severity": "moderate",
+        "source": "USGS",
+        "description": "Recent seismic activity: M5.1 earthquake detected",
+        "timestamp": "2025-12-23T10:42:23.961955",
+        "data_summary": "seismic alert for europe: moderate severity"
+      },
+      "requested_at": "2025-12-23T10:42:24.143941",
+      "approved_by": null,
+      "approved_at": null
+    },
+    {
+      "data_id": "seismic_usa_20251223",
+      "data_type": "risk_alert",
+      "status": "PENDING",
+      "summary": "seismic alert for usa: moderate severity",
+      "metadata": {
+        "risk_type": "seismic",
+        "region": "usa",
+        "severity": "moderate",
+        "source": "USGS",
+        "description": "Recent seismic activity: M5.1 earthquake detected",
+        "timestamp": "2025-12-23T10:42:24.143941",
+        "data_summary": "seismic alert for usa: moderate severity"
+      },
+      "requested_at": "2025-12-23T10:42:24.143941",
+      "approved_by": null,
+      "approved_at": null
+    }
+  ]
 }

@@ -4,7 +4,7 @@ Confidence Scoring Engine.
 Provides honest estimates with confidence scores based on assumptions.
 """
 
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from data_models import OptimizationInputs, TerrainType
 
 
@@ -43,6 +43,12 @@ def calculate_confidence_score_with_drivers(
     has_soil_survey: bool = False,
     has_wind_data: bool = False,
     row_mode: str = "urban_private",
+    location_auto_detected: bool = False,
+    wind_auto_detected: bool = False,
+    terrain_auto_detected: bool = False,
+    wind_user_override: bool = False,
+    terrain_user_override: bool = False,
+    resolution_mode: Optional[str] = None,
 ) -> Tuple[int, List[str]]:
     """
     Calculate confidence score (0-100%) with drivers.
@@ -66,7 +72,12 @@ def calculate_confidence_score_with_drivers(
     drivers.append("Structural physics fully validated")
     
     # Terrain assumptions
-    if has_terrain_profile:
+    if terrain_auto_detected:
+        drivers.append("Terrain classified from elevation profile variance")
+    elif terrain_user_override:
+        confidence -= 5
+        drivers.append("Terrain manually overridden (may not match elevation profile)")
+    elif has_terrain_profile:
         drivers.append("Terrain modeled using detailed elevation profile")
     else:
         confidence -= 15
@@ -80,7 +91,12 @@ def calculate_confidence_score_with_drivers(
         drivers.append("Soil category assumed from regional norms")
     
     # Wind assumptions
-    if has_wind_data:
+    if wind_auto_detected:
+        drivers.append("Wind zone derived from route location")
+    elif wind_user_override:
+        confidence -= 5
+        drivers.append("Wind zone manually overridden (may not match location)")
+    elif has_wind_data:
         drivers.append("Wind loads from site-specific data")
     else:
         confidence -= 10
@@ -96,6 +112,13 @@ def calculate_confidence_score_with_drivers(
         confidence -= 5
         drivers.append("Soft soil conditions increase foundation uncertainty")
     
+    # Location detection
+    if location_auto_detected:
+        drivers.append("Geographic context derived from route geometry")
+    else:
+        confidence -= 5
+        drivers.append("Location manually specified (may not match route coordinates)")
+    
     # ROW model assumptions
     if row_mode == "urban_private":
         drivers.append("ROW model assumed conservative (urban private land)")
@@ -108,6 +131,21 @@ def calculate_confidence_score_with_drivers(
     
     # Advisory risks
     drivers.append("Seismic, ice, wildfire treated as advisory (not auto-applied)")
+    
+    # Currency resolution
+    drivers.append("Currency inferred from route geography (presentation-only, no FX applied)")
+    
+    # Geographic resolution mode (if available)
+    if resolution_mode == "generic-physics-only":
+        confidence -= 20
+        drivers.append("⚠️ Geographic context unresolved - using generic physics-only mode (no country-specific standards)")
+    elif resolution_mode == "unresolved":
+        confidence -= 15
+        drivers.append("⚠️ Geographic context could not be resolved from coordinates")
+    elif resolution_mode == "map-derived":
+        drivers.append("✓ Geographic context derived from map reverse geocoding")
+    elif resolution_mode:
+        drivers.append(f"Geographic resolution mode: {resolution_mode}")
     
     # Minimum confidence
     confidence = max(50, confidence)

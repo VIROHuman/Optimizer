@@ -33,13 +33,34 @@
       },
       "approved_by": "Bhargav",
       "approved_at": "2025-12-18T16:06:57.459519",
-      "is_active": true,
+      "is_active": false,
       "metadata": {
         "rate": "90.26",
         "source": "Yahoo Finance",
         "timestamp": "2025-12-18T16:06:33.322520",
         "date": "2025-12-18",
         "data_summary": "USD/INR: 90.26 (Source: Yahoo Finance)"
+      }
+    },
+    {
+      "data_type": "currency_rate",
+      "version": "FX-v2025.12.20",
+      "data": {
+        "USD_INR": {
+          "rate": 89.55,
+          "source": "Yahoo Finance",
+          "date": "2025-12-20"
+        }
+      },
+      "approved_by": "Bhargav",
+      "approved_at": "2025-12-20T13:47:07.531050",
+      "is_active": true,
+      "metadata": {
+        "rate": "89.55",
+        "source": "Yahoo Finance",
+        "timestamp": "2025-12-20T13:46:13.818894",
+        "date": "2025-12-20",
+        "data_summary": "USD/INR: 89.55 (Source: Yahoo Finance)"
       }
     }
   ],
@@ -183,7 +204,7 @@
       },
       "approved_by": "Bhargav",
       "approved_at": "2025-12-18T16:06:57.535878",
-      "is_active": true,
+      "is_active": false,
       "metadata": {
         "risk_type": "seismic",
         "region": "usa",
@@ -191,6 +212,81 @@
         "source": "USGS",
         "description": "Recent seismic activity: M5.5 earthquake detected",
         "timestamp": "2025-12-18T16:06:41.574799",
+        "data_summary": "seismic alert for usa: moderate severity"
+      }
+    },
+    {
+      "data_type": "risk_alert",
+      "version": "RISK-v2025.12.20",
+      "data": {
+        "risk_type": "seismic",
+        "region": "india",
+        "severity": "moderate",
+        "source": "USGS",
+        "description": "Recent seismic activity: M5.6 earthquake detected",
+        "timestamp": "2025-12-20T13:46:21.716177",
+        "data_summary": "seismic alert for india: moderate severity"
+      },
+      "approved_by": "Bhargav",
+      "approved_at": "2025-12-20T13:47:07.554122",
+      "is_active": false,
+      "metadata": {
+        "risk_type": "seismic",
+        "region": "india",
+        "severity": "moderate",
+        "source": "USGS",
+        "description": "Recent seismic activity: M5.6 earthquake detected",
+        "timestamp": "2025-12-20T13:46:21.716177",
+        "data_summary": "seismic alert for india: moderate severity"
+      }
+    },
+    {
+      "data_type": "risk_alert",
+      "version": "RISK-v2025.12.20",
+      "data": {
+        "risk_type": "seismic",
+        "region": "europe",
+        "severity": "moderate",
+        "source": "USGS",
+        "description": "Recent seismic activity: M5.6 earthquake detected",
+        "timestamp": "2025-12-20T13:46:21.888950",
+        "data_summary": "seismic alert for europe: moderate severity"
+      },
+      "approved_by": "Bhargav",
+      "approved_at": "2025-12-20T13:47:07.570362",
+      "is_active": false,
+      "metadata": {
+        "risk_type": "seismic",
+        "region": "europe",
+        "severity": "moderate",
+        "source": "USGS",
+        "description": "Recent seismic activity: M5.6 earthquake detected",
+        "timestamp": "2025-12-20T13:46:21.888950",
+        "data_summary": "seismic alert for europe: moderate severity"
+      }
+    },
+    {
+      "data_type": "risk_alert",
+      "version": "RISK-v2025.12.20",
+      "data": {
+        "risk_type": "seismic",
+        "region": "usa",
+        "severity": "moderate",
+        "source": "USGS",
+        "description": "Recent seismic activity: M5.6 earthquake detected",
+        "timestamp": "2025-12-20T13:46:22.068393",
+        "data_summary": "seismic alert for usa: moderate severity"
+      },
+      "approved_by": "Bhargav",
+      "approved_at": "2025-12-20T13:47:07.587555",
+      "is_active": true,
+      "metadata": {
+        "risk_type": "seismic",
+        "region": "usa",
+        "severity": "moderate",
+        "source": "USGS",
+        "description": "Recent seismic activity: M5.6 earthquake detected",
+        "timestamp": "2025-12-20T13:46:22.068393",
         "data_summary": "seismic alert for usa: moderate severity"
       }
     }

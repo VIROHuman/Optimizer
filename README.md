@@ -1,6 +1,6 @@
 # Transmission Tower Optimization System
 
-A full-stack engineering application for optimizing transmission tower designs with physics-based calculations, PSO optimization, codal compliance checks, and cost estimation.
+**Larsen & Toubro Power** - A full-stack engineering application for optimizing transmission tower designs with physics-based calculations, PSO optimization, codal compliance checks, and cost estimation.
 
 ## Architecture
 

@@ -37,7 +37,7 @@ export default function LandingPage({ onStartOptimization }: LandingPageProps) {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <Logo width={40} height={40} />
-              <span className="font-semibold text-foreground text-lg">L&T Power</span>
+              <span className="font-semibold text-foreground text-lg">Larsen & Toubro</span>
             </div>
             <ThemeToggle />
           </div>
@@ -108,7 +108,7 @@ export default function LandingPage({ onStartOptimization }: LandingPageProps) {
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-3">
           <Logo width={24} height={24} />
           <span className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} L&T Power. All rights reserved.
+            © {new Date().getFullYear()} Larsen & Toubro Limited. All rights reserved.
           </span>
         </div>
       </footer>

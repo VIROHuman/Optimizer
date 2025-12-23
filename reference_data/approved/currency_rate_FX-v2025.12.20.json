@@ -1,0 +1,21 @@
+{
+  "data_type": "currency_rate",
+  "version": "FX-v2025.12.20",
+  "data": {
+    "USD_INR": {
+      "rate": 89.55,
+      "source": "Yahoo Finance",
+      "date": "2025-12-20"
+    }
+  },
+  "approved_by": "Bhargav",
+  "approved_at": "2025-12-20T13:47:07.531050",
+  "is_active": true,
+  "metadata": {
+    "rate": "89.55",
+    "source": "Yahoo Finance",
+    "timestamp": "2025-12-20T13:46:13.818894",
+    "date": "2025-12-20",
+    "data_summary": "USD/INR: 89.55 (Source: Yahoo Finance)"
+  }
+}

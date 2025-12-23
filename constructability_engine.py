@@ -291,16 +291,24 @@ def _check_base_width_practicality(design: TowerDesign) -> List[Constructability
     """Check 6: Base width practicality."""
     warnings = []
     
-    min_base_width_ratio = 0.25
+    # Use tower-type-specific base width ratio (same as optimizer)
+    # This ensures consistency: if constraint is satisfied, no warning
+    from pso_optimizer import get_base_width_ratio_for_tower_type
+    min_base_width_ratio = get_base_width_ratio_for_tower_type(design.tower_type)
     actual_ratio = design.base_width / design.tower_height
     
+    # Only warn if constraint is NOT satisfied (should not happen if optimizer is working correctly)
     if actual_ratio < min_base_width_ratio:
         warning_msg = (
             f"Compact tower base relative to height "
-            f"(base_width/height = {actual_ratio:.3f} < {min_base_width_ratio}). "
-            f"Check erection stability and leg force concentration."
+            f"(base_width/height = {actual_ratio:.3f} < {min_base_width_ratio} for {design.tower_type.value} tower). "
+            f"Check erection stability and leg force concentration. "
+            f"Note: Optimizer should enforce base_width >= height × {min_base_width_ratio}."
         )
         warnings.append(ConstructabilityWarning(warning_msg))
+    
+    # If constraint is satisfied, remove "pencil tower" warning
+    # (No warning needed - design meets geometric constraint)
     
     return warnings
 
@@ -317,17 +325,15 @@ def _check_cost_anomaly(
         
         if total_cost < 250000.0:
             warning_msg = (
-                f"Estimated cost (${total_cost:,.2f} USD) below typical per-tower range "
-                f"($250,000 - $2,000,000 USD). "
-                f"Verify geometry, cost assumptions, and regional multipliers."
+                f"Estimated per-tower cost appears low relative to geometric scale. "
+                f"Verify assumptions, geometry, and regional multipliers."
             )
             warnings.append(ConstructabilityWarning(warning_msg))
         
         if total_cost > 2000000.0:
             warning_msg = (
-                f"Estimated cost (${total_cost:,.2f} USD) exceeds typical per-tower range "
-                f"($250,000 - $2,000,000 USD). "
-                f"Verify geometry, cost assumptions, and regional multipliers."
+                f"Estimated per-tower cost appears high relative to geometric scale. "
+                f"Verify assumptions, geometry, and regional multipliers."
             )
             warnings.append(ConstructabilityWarning(warning_msg))
     except Exception:

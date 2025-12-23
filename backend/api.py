@@ -23,8 +23,10 @@ from backend.models.route_request import RouteOptimizationRequest
 from backend.models.canonical import (
     CanonicalOptimizationResult, TowerResponse, SpanResponse,
     LineSummaryResponse, CostBreakdownResponse, SafetySummaryResponse,
-    RegionalContextResponse, TowerSafetyStatus, ConfidenceResponse
+    RegionalContextResponse, TowerSafetyStatus, ConfidenceResponse,
+    CurrencyContextResponse
 )
+from backend.services.currency_resolver import resolve_currency
 from backend.services.optimizer_service import run_optimization
 from backend.services.route_optimizer import optimize_route
 
@@ -101,7 +103,6 @@ async def optimize(request: OptimizationRequest):
         
         # Convert request to dict format expected by service
         input_dict = {
-            "location": request.location,
             "voltage": request.voltage,
             "terrain": request.terrain,
             "wind": request.wind,
@@ -116,6 +117,15 @@ async def optimize(request: OptimizationRequest):
             "terrain_profile": request.terrain_profile,  # Pass terrain profile (TASK 5.3)
             "row_mode": request.row_mode,  # Pass ROW mode
         }
+        
+        # Add geo_context if provided (map-driven geographic resolution)
+        if request.geo_context:
+            input_dict["geo_context"] = {
+                "country_code": request.geo_context.country_code,
+                "country_name": request.geo_context.country_name,
+                "state": request.geo_context.state,
+                "resolution_mode": request.geo_context.resolution_mode,
+            }
         
         # Run optimization
         # The service now returns canonical format (dict representation of CanonicalOptimizationResult)
@@ -146,6 +156,7 @@ async def optimize(request: OptimizationRequest):
             base_height_m=16.0,
             body_extension_m=24.0,
             total_height_m=40.0,
+            base_width_m=8.0,  # CRITICAL: Tower base width (not footing width)
             leg_extensions_m=None,
             foundation_type="pad_footing",
             foundation_dimensions={"length": 4.0, "width": 4.0, "depth": 3.0},
@@ -215,6 +226,11 @@ async def optimize(request: OptimizationRequest):
             ),
             cost_sensitivity=None,
             cost_context=None,
+            currency=CurrencyContextResponse(
+                code="USD",
+                symbol="$",
+                label="USD"
+            ),
             warnings=[{"type": "error", "message": error_detail}],
             advisories=[],
             reference_data_status=None,

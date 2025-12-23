@@ -1,0 +1,25 @@
+{
+  "data_type": "risk_alert",
+  "version": "RISK-v2025.12.20",
+  "data": {
+    "risk_type": "seismic",
+    "region": "usa",
+    "severity": "moderate",
+    "source": "USGS",
+    "description": "Recent seismic activity: M5.6 earthquake detected",
+    "timestamp": "2025-12-20T13:46:22.068393",
+    "data_summary": "seismic alert for usa: moderate severity"
+  },
+  "approved_by": "Bhargav",
+  "approved_at": "2025-12-20T13:47:07.587555",
+  "is_active": true,
+  "metadata": {
+    "risk_type": "seismic",
+    "region": "usa",
+    "severity": "moderate",
+    "source": "USGS",
+    "description": "Recent seismic activity: M5.6 earthquake detected",
+    "timestamp": "2025-12-20T13:46:22.068393",
+    "data_summary": "seismic alert for usa: moderate severity"
+  }
+}

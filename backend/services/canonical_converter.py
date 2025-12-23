@@ -33,10 +33,17 @@ from backend.models.canonical import (
     RegionalContextResponse,
     TowerSafetyStatus,
     CostSensitivityResponse,
+    CurrencyContextResponse,
 )
+from backend.models.geo_context import GeographicResolutionResponse
 from backend.services.confidence_scorer import calculate_confidence_score_with_drivers
 from backend.services.cost_sensitivity import calculate_cost_sensitivity_bands
 from backend.services.cost_context import generate_cost_context
+from backend.services.currency_resolver import resolve_currency
+from backend.services.geo_resolver import resolve_currency_from_geo
+from backend.models.geo_context import GeoContext, GeographicResolutionResponse
+from backend.services.geo_resolver import resolve_currency_from_geo
+from backend.models.geo_context import GeoContext
 
 
 def calculate_steel_weight_kg(design: TowerDesign, inputs: OptimizationInputs) -> float:
@@ -88,6 +95,12 @@ def convert_to_canonical(
     project_length_km: Optional[float] = None,
     route_coordinates: Optional[List[Dict[str, float]]] = None,
     row_mode: str = "urban_private",
+    location_auto_detected: bool = False,
+    wind_source: Optional[str] = None,
+    terrain_source: Optional[str] = None,
+    geo_context: Optional[GeoContext] = None,
+    resolution_mode: Optional[str] = None,
+    standard_explanation: Optional[str] = None,
 ) -> CanonicalOptimizationResult:
     """
     Convert OptimizationResult to canonical format.
@@ -132,10 +145,16 @@ def convert_to_canonical(
         elif voltage >= 400:
             min_height = 45.0
         
+        # Use geometry-coupled base width constraint with tower-type-specific ratio
+        from pso_optimizer import get_base_width_ratio_for_tower_type
+        corrected_height = max(design.tower_height, min_height)
+        tower_type_ratio = get_base_width_ratio_for_tower_type(design.tower_type)
+        min_base_width = corrected_height * tower_type_ratio
+        
         design = TowerDesign(
             tower_type=design.tower_type,
-            tower_height=max(design.tower_height, min_height),  # Ensure minimum height
-            base_width=max(design.base_width, min_height * 0.3),  # Ensure minimum base (30% of height)
+            tower_height=corrected_height,  # Ensure minimum height
+            base_width=max(design.base_width, min_base_width),  # Ensure minimum base (geometry-coupled)
             span_length=max(inputs.span_min, min(design.span_length, inputs.span_max)),  # Clamp span
             foundation_type=FoundationType.PAD_FOOTING,
             footing_length=max(design.footing_length, 5.0),  # Larger footing
@@ -160,16 +179,43 @@ def convert_to_canonical(
     towers_per_km = 1000.0 / design.span_length
     row_corridor_cost_per_km = calculate_row_corridor_cost_per_km(inputs, row_mode)
     
-    # Currency conversion
+    # Currency resolution: Use geo_context first, then governing standard, then fallback
     intelligence_manager = IntelligenceManager()
     display_currency = "USD"
     exchange_rate = None
     
-    if inputs.project_location.lower() in ["india", "indian"]:
+    # First: Try to resolve currency from geo_context
+    currency_dict = None
+    if geo_context:
+        currency_dict, _, _ = resolve_currency_from_geo(geo_context)
+    
+    # Second: If geo_context not available, try resolve_currency with all available info
+    if not currency_dict:
+        currency_dict = resolve_currency(
+            location=inputs.project_location,
+            route_coordinates=route_coordinates,
+            geo_context=geo_context
+        )
+    
+    # Third: Fallback to governing standard (IS → INR)
+    if not currency_dict and inputs.governing_standard == DesignStandard.IS:
         display_currency = "INR"
         exchange_rate = intelligence_manager.get_currency_rate("USD", "INR")
         if exchange_rate is None:
             exchange_rate = 83.0
+    elif currency_dict:
+        display_currency = currency_dict["code"]
+        if display_currency == "INR":
+            exchange_rate = intelligence_manager.get_currency_rate("USD", "INR")
+            if exchange_rate is None:
+                exchange_rate = 83.0
+    else:
+        # Final fallback: check location string
+        if inputs.project_location.lower() in ["india", "indian"]:
+            display_currency = "INR"
+            exchange_rate = intelligence_manager.get_currency_rate("USD", "INR")
+            if exchange_rate is None:
+                exchange_rate = 83.0
     
     cost_multiplier = exchange_rate if (display_currency == "INR" and exchange_rate) else 1.0
     currency_symbol = "₹" if display_currency == "INR" else "$"
@@ -199,6 +245,7 @@ def convert_to_canonical(
         base_height_m=design.tower_height * 0.4,  # Approximate: base height is ~40% of total
         body_extension_m=design.tower_height * 0.6,  # Body extension is ~60%
         total_height_m=design.tower_height,
+        base_width_m=design.base_width,  # CRITICAL: Tower base width (not footing width)
         leg_extensions_m=None,  # Not applicable for standard towers
         foundation_type=design.foundation_type.value,
         foundation_dimensions={
@@ -262,7 +309,42 @@ def convert_to_canonical(
         total_project_cost=round(total_project_cost * cost_multiplier, 2),
         cost_per_km=round(cost_per_km, 2),
         estimated_towers_for_project_length=total_towers if project_length_km else None,
+        wind_source=wind_source,
+        terrain_source=terrain_source,
     )
+    
+    # Resolve currency first (before creating cost_breakdown)
+    # Use geo_context first, then fallback to standard-based resolution
+    currency_dict = None
+    if geo_context:
+        currency_dict, _, _ = resolve_currency_from_geo(geo_context)
+    
+    if not currency_dict:
+        currency_dict = resolve_currency(
+            location=inputs.project_location,
+            route_coordinates=route_coordinates,
+            geo_context=geo_context
+        )
+    
+    # Fallback: If IS standard, use INR
+    if not currency_dict and inputs.governing_standard == DesignStandard.IS:
+        currency_dict = {
+            "code": "INR",
+            "symbol": "₹",
+            "label": "INR",
+            "resolution_mode": "standard-based",
+            "resolution_explanation": "Currency determined from governing standard (IS → INR)."
+        }
+    
+    # Final fallback: USD
+    if not currency_dict:
+        currency_dict = {
+            "code": "USD",
+            "symbol": "$",
+            "label": "USD",
+            "resolution_mode": "fallback",
+            "resolution_explanation": "Currency could not be determined, using USD as fallback."
+        }
     
     # Cost breakdown
     cost_breakdown_response = CostBreakdownResponse(
@@ -271,8 +353,8 @@ def convert_to_canonical(
         erection_total=round(erection_cost_total * total_towers * cost_multiplier, 2),
         transport_total=round(transport_cost * total_towers * cost_multiplier, 2),
         land_ROW_total=round((cost_breakdown['land_cost'] * towers_per_km + row_corridor_cost_per_km) * route_length_km * cost_multiplier, 2),
-        currency=display_currency,
-        currency_symbol=currency_symbol,
+        currency=currency_dict["code"],
+        currency_symbol=currency_dict["symbol"],
     )
     
     # Safety summary
@@ -319,13 +401,25 @@ def convert_to_canonical(
     regional_risks_list = get_regional_risks(inputs.project_location) or []
     dominant_risks = [r if isinstance(r, str) else r.get("name", str(r)) for r in regional_risks_list]
     
+    # Determine if wind/terrain were auto-detected or user-overridden
+    wind_auto = wind_source == "map-derived" if wind_source else False
+    terrain_auto = terrain_source == "elevation-derived" if terrain_source else False
+    wind_override = wind_source == "user-selected" if wind_source and route_coordinates else False
+    terrain_override = terrain_source == "user-selected" if terrain_source and terrain_profile else False
+    
     # Calculate confidence score with drivers
     confidence_score, confidence_drivers = calculate_confidence_score_with_drivers(
         inputs=inputs,
-        has_terrain_profile=route_coordinates is not None and len(route_coordinates) > 0,
+        has_terrain_profile=(terrain_profile is not None and len(terrain_profile) > 0) if terrain_profile else (route_coordinates is not None and len(route_coordinates) > 0),
         has_soil_survey=False,
         has_wind_data=False,
         row_mode=row_mode,
+        location_auto_detected=location_auto_detected,
+        wind_auto_detected=wind_auto,
+        terrain_auto_detected=terrain_auto,
+        wind_user_override=wind_override,
+        terrain_user_override=terrain_override,
+        resolution_mode=resolution_mode,
     )
     
     from backend.models.canonical import ConfidenceResponse
@@ -335,6 +429,8 @@ def convert_to_canonical(
         governing_standard=inputs.governing_standard.value,
         dominant_regional_risks=dominant_risks[:5],  # Top 5 risks
         confidence=confidence,
+        wind_source=wind_source,
+        terrain_source=terrain_source,
     )
     
     # Calculate cost sensitivity bands
@@ -382,6 +478,49 @@ def convert_to_canonical(
         'convergence_history': result.convergence_info.get('convergence_history', []),
     }
     
+    # Resolve currency context from geo_context (presentation-only, no FX conversion)
+    currency_dict = None
+    currency_resolution_mode = None
+    currency_explanation = None
+    
+    if geo_context:
+        currency_dict, currency_resolution_mode, currency_explanation = resolve_currency_from_geo(geo_context)
+    
+    # Fallback to legacy method if geo_context not available
+    if not currency_dict:
+        currency_dict = resolve_currency(
+            location=inputs.project_location,
+            route_coordinates=route_coordinates,
+            geo_context=geo_context
+        )
+        if currency_dict:
+            currency_resolution_mode = currency_dict.get("resolution_mode", "legacy")
+            currency_explanation = currency_dict.get("resolution_explanation", "Currency resolved using legacy method")
+    
+    currency_context = None
+    if currency_dict:
+        currency_context = CurrencyContextResponse(
+            code=currency_dict["code"],
+            symbol=currency_dict["symbol"],
+            label=currency_dict["label"],
+            resolution_mode=currency_resolution_mode.value if hasattr(currency_resolution_mode, 'value') else str(currency_resolution_mode),
+            resolution_explanation=currency_explanation
+        )
+        # Update cost_breakdown to use resolved currency (for backward compatibility)
+        cost_breakdown_response.currency = currency_dict["code"]
+        cost_breakdown_response.currency_symbol = currency_dict["symbol"]
+    
+    # Create geographic resolution response
+    geographic_resolution = None
+    if geo_context:
+        geographic_resolution = GeographicResolutionResponse(
+            resolution_mode=resolution_mode or "unresolved",
+            country_code=geo_context.country_code,
+            country_name=geo_context.country_name,
+            state=geo_context.state,
+            resolution_explanation=standard_explanation or "Geographic context not resolved"
+        )
+    
     # Create result
     result_obj = CanonicalOptimizationResult(
         towers=[tower],
@@ -392,6 +531,8 @@ def convert_to_canonical(
         regional_context=regional_context,
         cost_sensitivity=cost_sensitivity,
         cost_context=cost_context,
+        currency=currency_context,
+        geographic_resolution=geographic_resolution,
         warnings=warnings,
         advisories=advisories,
         reference_data_status=reference_data_status,

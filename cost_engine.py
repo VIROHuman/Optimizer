@@ -371,7 +371,34 @@ def _calculate_steel_cost(
     
     # Regional steel rate
     region = _get_region_from_location(inputs.project_location)
-    steel_rate = REGIONAL_STEEL_RATES.get(region, REGIONAL_STEEL_RATES["default"])
+    
+    # CRITICAL: Check IntelligenceManager for approved cost indices from crawler
+    # If approved data exists, use it; otherwise fall back to hardcoded rates
+    from intelligence.intelligence_manager import IntelligenceManager
+    intelligence_manager = IntelligenceManager()
+    
+    # Try to get approved steel cost index from crawler
+    cost_index_data = intelligence_manager.reference_store.get_active_version("cost_index")
+    steel_rate = None
+    
+    if cost_index_data and isinstance(cost_index_data.data, dict):
+        # Look for steel index for this region
+        region_key = region.lower()
+        if region_key in cost_index_data.data:
+            region_data = cost_index_data.data[region_key]
+            if isinstance(region_data, dict) and "steel" in region_data:
+                steel_rate = region_data["steel"].get("value")
+                if steel_rate:
+                    steel_rate = float(steel_rate)
+                    # Ensure rate is in USD per tonne (crawler data should be normalized)
+                    # If crawler provides per kg, convert to per tonne
+                    unit = region_data["steel"].get("unit", "USD/tonne")
+                    if "/kg" in unit.lower():
+                        steel_rate = steel_rate * 1000.0  # Convert per kg to per tonne
+    
+    # Fall back to hardcoded rates if crawler data not available
+    if steel_rate is None:
+        steel_rate = REGIONAL_STEEL_RATES.get(region, REGIONAL_STEEL_RATES["default"])
     
     # Cost
     return steel_weight_tonnes * steel_rate

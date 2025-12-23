@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import RouteMap from "@/components/route-map"
 import TerrainSampler from "@/components/terrain-sampler"
+import { reverseGeocodeRoute, GeoContext } from "@/lib/mapbox-geocoding"
 
 interface TowerOptimizerFormProps {
   onSubmit?: (data: any) => void
@@ -16,8 +17,11 @@ interface TowerOptimizerFormProps {
 }
 
 export default function TowerOptimizerForm({ onSubmit, isLoading = false }: TowerOptimizerFormProps) {
+  const [geoContext, setGeoContext] = React.useState<GeoContext | null>(null)
+  const [autoDetectedWind, setAutoDetectedWind] = React.useState<string | null>(null)
+  const [autoDetectedTerrain, setAutoDetectedTerrain] = React.useState<string | null>(null)
+  
   const [formData, setFormData] = React.useState({
-    location: "",
     voltage: "",
     terrain: "",
     wind: "",
@@ -40,9 +44,23 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Validate all required fields
-    if (!formData.location || !formData.voltage || !formData.terrain || !formData.wind || !formData.soil || !formData.tower) {
-      alert("Please fill in all required fields")
+    // Validate all required fields (location/wind/terrain optional if route/terrain_profile exist)
+    const hasRoute = routeCoordinates.length >= 2
+    const hasTerrainProfile = terrainProfile.length >= 2
+    const needsLocation = !hasRoute && !formData.location.trim()
+    const needsWind = !hasRoute && !formData.wind
+    const needsTerrain = !hasTerrainProfile && !formData.terrain
+    
+    if (needsLocation || needsWind || needsTerrain || !formData.voltage || !formData.soil || !formData.tower) {
+      if (needsLocation) {
+        alert("Please either draw a route on the map or enter a project location")
+      } else if (needsWind) {
+        alert("Please either draw a route on the map or select a wind zone")
+      } else if (needsTerrain) {
+        alert("Please either sample terrain elevation or select a terrain type")
+      } else {
+        alert("Please fill in all required fields")
+      }
       return
     }
     
@@ -53,11 +71,7 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
       return
     }
     
-    // Validate location is not empty after trim
-    if (!formData.location.trim()) {
-      alert("Please enter a valid project location")
-      return
-    }
+    // Location validation already handled above (optional if route exists)
     
     // Use route length if available, otherwise use manual input
     const projectLengthNum = routeLength > 0 ? routeLength : Number(formData.projectLength)
@@ -66,12 +80,13 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
       return
     }
     
-    // Include route data in submission
+    // Include route data and geo_context in submission
     onSubmit?.({
       ...formData,
       routeCoordinates: routeCoordinates.length > 0 ? routeCoordinates : undefined,
       terrainProfile: terrainProfile.length > 0 ? terrainProfile : undefined,
       projectLength: projectLengthNum,
+      geo_context: geoContext || undefined,
     })
   }
 
@@ -87,16 +102,75 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
     }
   }
 
-  const handleRouteComplete = (route: Array<{ lat: number; lon: number }>, lengthKm: number, map: any) => {
+  const handleRouteComplete = async (route: Array<{ lat: number; lon: number }>, lengthKm: number, map: any) => {
     setRouteCoordinates(route)
     setRouteLength(lengthKm)
     setMapInstance(map)
     // Update project length field
     setFormData(prev => ({ ...prev, projectLength: lengthKm.toFixed(2) }))
+    
+    // Reverse geocode route to get country and state
+    if (route.length > 0) {
+      const geo = await reverseGeocodeRoute(route)
+      setGeoContext(geo)
+      
+      // Auto-detect wind zone from location (simplified client-side logic)
+      // Note: Full detection happens on backend, this is just for UI preview
+      const firstPoint = route[0]
+      const lat = firstPoint.lat
+      const lon = firstPoint.lon
+      
+      // Simple heuristics for common regions
+      let windZone = "zone_2" // Default
+      
+      // India coastal regions
+      if (lat >= 6.5 && lat <= 37.5 && lon >= 68 && lon <= 97) {
+        if (lon < 75.5 || lon > 80.5) {
+          windZone = "zone_4" // India coastal
+        } else {
+          windZone = "zone_2" // India inland
+        }
+      }
+      // USA
+      else if (lat >= 24.5 && lat <= 49.5 && lon >= -125 && lon <= -66) {
+        windZone = "zone_3" // USA default
+      }
+      // UAE/Middle East
+      else if (lat >= 22 && lat <= 26 && lon >= 51 && lon <= 56) {
+        windZone = "zone_4" // UAE
+      }
+      
+      setAutoDetectedWind(windZone)
+      // Auto-fill if not already set
+      if (!formData.wind) {
+        setFormData(prev => ({ ...prev, wind: windZone }))
+      }
+    }
   }
   
   const handleTerrainComplete = (profile: Array<{ distance_m: number; elevation_m: number }>) => {
     setTerrainProfile(profile)
+    
+    // Auto-classify terrain from elevation variance
+    if (profile.length >= 2) {
+      const elevations = profile.map(p => p.elevation_m)
+      const minElev = Math.min(...elevations)
+      const maxElev = Math.max(...elevations)
+      const range = maxElev - minElev
+      
+      let terrainType = "flat"
+      if (range >= 50) {
+        terrainType = "mountainous"
+      } else if (range >= 10) {
+        terrainType = "rolling"
+      }
+      
+      setAutoDetectedTerrain(terrainType)
+      // Auto-fill if not already set
+      if (!formData.terrain) {
+        setFormData(prev => ({ ...prev, terrain: terrainType }))
+      }
+    }
   }
 
   return (
@@ -124,20 +198,45 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Parameters Grid */}
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="location" className="text-foreground">
-                Location
-              </Label>
-              <Input
-                id="location"
-                placeholder="Enter project location"
-                value={formData.location}
-                onChange={(e) => updateField("location", e.target.value)}
-                className="bg-background border-input"
-              />
+          {/* Geographic Context Display */}
+          {routeCoordinates.length >= 2 && geoContext && (
+            <div className="p-4 bg-muted rounded-lg border border-border">
+              <Label className="text-foreground font-semibold mb-2 block">Geographic Context (Map-Derived)</Label>
+              <div className="space-y-1 text-sm">
+                {geoContext.country_code ? (
+                  <>
+                    <div>
+                      <span className="text-muted-foreground">Country: </span>
+                      <span className="font-medium text-foreground">
+                        {geoContext.country_name || geoContext.country_code}
+                      </span>
+                      {geoContext.country_code && (
+                        <span className="text-muted-foreground ml-2">({geoContext.country_code})</span>
+                      )}
+                    </div>
+                    {geoContext.state && (
+                      <div>
+                        <span className="text-muted-foreground">State/Region: </span>
+                        <span className="font-medium text-foreground">{geoContext.state}</span>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-muted-foreground">Resolution: </span>
+                      <span className="font-medium text-green-600 dark:text-green-400">
+                        {geoContext.resolution_mode === "map-derived" ? "Map-derived" : "Unresolved"}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-amber-600 dark:text-amber-400">
+                    ⚠️ Country could not be resolved from coordinates. Using generic physics-only mode.
+                  </div>
+                )}
+              </div>
             </div>
+          )}
 
+          <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="voltage" className="text-foreground">
                 Voltage Level (kV)
@@ -160,10 +259,15 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
             <div className="space-y-2">
               <Label htmlFor="terrain" className="text-foreground">
                 Terrain
+                {autoDetectedTerrain && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    (Auto-detected from terrain profile)
+                  </span>
+                )}
               </Label>
               <Select value={formData.terrain} onValueChange={(v) => updateField("terrain", v)}>
                 <SelectTrigger className="bg-background border-input">
-                  <SelectValue placeholder="Select terrain type" />
+                  <SelectValue placeholder={autoDetectedTerrain ? `Auto: ${autoDetectedTerrain}` : "Select terrain type"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="flat">Flat</SelectItem>
@@ -172,15 +276,25 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
                   <SelectItem value="desert">Desert</SelectItem>
                 </SelectContent>
               </Select>
+              {autoDetectedTerrain && formData.terrain !== autoDetectedTerrain && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Overriding auto-detected terrain ({autoDetectedTerrain})
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="wind" className="text-foreground">
                 Wind Zone
+                {autoDetectedWind && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    (Auto-detected from route)
+                  </span>
+                )}
               </Label>
               <Select value={formData.wind} onValueChange={(v) => updateField("wind", v)}>
                 <SelectTrigger className="bg-background border-input">
-                  <SelectValue placeholder="Select wind zone" />
+                  <SelectValue placeholder={autoDetectedWind ? `Auto: ${autoDetectedWind}` : "Select wind zone"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="zone_1">Zone 1 (Low)</SelectItem>
@@ -189,6 +303,11 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
                   <SelectItem value="zone_4">Zone 4 (Very High)</SelectItem>
                 </SelectContent>
               </Select>
+              {autoDetectedWind && formData.wind !== autoDetectedWind && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Overriding auto-detected wind zone ({autoDetectedWind})
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

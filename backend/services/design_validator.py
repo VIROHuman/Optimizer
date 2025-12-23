@@ -6,8 +6,11 @@ instead of raising exceptions. This ensures the API always returns
 structured responses, never crashes.
 """
 
-from typing import List
+from typing import List, Tuple
 from data_models import TowerDesign
+
+# Import tower-type-specific base width ratio function
+from pso_optimizer import get_base_width_ratio_for_tower_type
 
 
 def validate_design_bounds(design: TowerDesign) -> List[str]:
@@ -59,6 +62,36 @@ def validate_design_bounds(design: TowerDesign) -> List[str]:
         violations.append(f"Footing depth ({design.footing_depth:.2f} m) above maximum (6.0 m)")
     
     return violations
+
+
+def check_geometry_constraint(design: TowerDesign) -> Tuple[bool, str]:
+    """
+    Check geometry-coupled base width constraint.
+    
+    This is a secondary sanity check that flags geometry corrections.
+    Does NOT mark design as unsafe - it's an informational flag.
+    
+    Args:
+        design: TowerDesign to check
+        
+    Returns:
+        Tuple of (is_satisfied, message)
+        - is_satisfied: True if constraint is satisfied
+        - message: Description of constraint status (empty if satisfied)
+    """
+    # Get tower-type-specific base width ratio
+    tower_type_ratio = get_base_width_ratio_for_tower_type(design.tower_type)
+    min_base_width = design.tower_height * tower_type_ratio
+    
+    if design.base_width < min_base_width:
+        return False, (
+            f"geometry-corrected: base_width ({design.base_width:.2f} m) "
+            f"was corrected to meet minimum ratio requirement "
+            f"(height × {tower_type_ratio} = {min_base_width:.2f} m for {design.tower_type.value} tower)"
+        )
+    
+    return True, ""
+
 
 
 

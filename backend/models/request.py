@@ -4,6 +4,7 @@ Request models for optimization API.
 
 from pydantic import BaseModel
 from typing import Literal, Optional, List, Dict, Any
+from backend.models.geo_context import GeoContext
 
 
 class OptimizationFlags(BaseModel):
@@ -15,10 +16,10 @@ class OptimizationFlags(BaseModel):
 
 class OptimizationRequest(BaseModel):
     """Request model for optimization endpoint."""
-    location: str
+    geo_context: Optional[GeoContext] = None  # Geographic context from map reverse geocoding
     voltage: int
-    terrain: Literal["flat", "rolling", "mountainous", "desert"]
-    wind: Literal["zone_1", "zone_2", "zone_3", "zone_4"]
+    terrain: Optional[Literal["flat", "rolling", "mountainous", "desert"]] = None  # Optional if terrain_profile provided
+    wind: Optional[Literal["zone_1", "zone_2", "zone_3", "zone_4"]] = None  # Optional if route_coordinates provided
     soil: Literal["soft", "medium", "hard", "rock"]
     tower: Literal["suspension", "angle", "tension", "dead_end"]
     flags: OptimizationFlags

@@ -11,6 +11,20 @@ from data_models import (
     TerrainType, WindZone, SoilCategory
 )
 from location_to_code import get_governing_standard
+from backend.services.location_deriver import (
+    derive_location_from_coordinates,
+    derive_wind_zone_from_location,
+    classify_terrain_from_elevation_profile,
+    reverse_geocode_simple,
+    COUNTRY_CODE_TO_STANDARD,
+)
+from backend.services.geo_resolver import (
+    resolve_governing_standard,
+    resolve_currency_from_geo,
+    ResolutionMode,
+)
+from backend.models.geo_context import GeoContext
+from data_models import DesignStandard
 from codal_engine import (
     ISEngine, IECEngine, EurocodeEngine, ASCEEngine
 )
@@ -24,7 +38,7 @@ from constructability_engine import check_constructability
 from regional_risk_registry import get_regional_risks
 from dominant_risk_advisory import generate_risk_advisories
 from intelligence.intelligence_manager import IntelligenceManager
-from backend.services.design_validator import validate_design_bounds
+from backend.services.design_validator import validate_design_bounds, check_geometry_constraint
 from backend.services.canonical_converter import convert_to_canonical
 
 
@@ -45,7 +59,8 @@ def create_codal_engine(standard: DesignStandard):
         DesignStandard.ASCE: ASCEEngine,
     }
     
-    engine_class = engines.get(standard)
+    # IEC is the most generic standard - use it as fallback for GENERIC_PHYSICS_ONLY mode
+    engine_class = engines.get(standard, IECEngine)
     if engine_class is None:
         raise ValueError(f"Unsupported design standard: {standard}")
     
@@ -76,6 +91,39 @@ def parse_input_dict(input_dict: Dict[str, Any]) -> tuple[OptimizationInputs, To
     Returns:
         Tuple of (OptimizationInputs, TowerType)
     """
+    # Derive terrain from elevation profile if available, otherwise use manual input
+    terrain_profile = input_dict.get('terrain_profile')
+    terrain_input = input_dict.get('terrain')
+    terrain_source = "user-selected"
+    is_terrain_auto_detected = False
+    
+    if terrain_profile and len(terrain_profile) > 0:
+        # Try to auto-classify terrain from elevation profile
+        derived_terrain, is_auto = classify_terrain_from_elevation_profile(terrain_profile)
+        if derived_terrain and is_auto:
+            # Use auto-detected terrain if user didn't explicitly override
+            if not terrain_input:
+                terrain_input = derived_terrain
+                terrain_source = "elevation-derived"
+                is_terrain_auto_detected = True
+            else:
+                # User provided terrain, check if it matches auto-detected
+                if terrain_input.lower() == derived_terrain.lower():
+                    # User selection matches auto-detection
+                    terrain_source = "elevation-derived"
+                    is_terrain_auto_detected = True
+                else:
+                    # User overrode, keep their selection but mark it
+                    terrain_source = "user-selected"
+        else:
+            # Auto-detection failed, use manual input
+            if not terrain_input:
+                raise ValueError("Terrain is required. Could not auto-detect from elevation profile.")
+    else:
+        # No terrain profile, require manual input
+        if not terrain_input:
+            raise ValueError("Terrain is required. Either provide terrain_profile or terrain.")
+    
     # Parse terrain
     terrain_map = {
         'flat': TerrainType.FLAT,
@@ -83,9 +131,57 @@ def parse_input_dict(input_dict: Dict[str, Any]) -> tuple[OptimizationInputs, To
         'mountainous': TerrainType.MOUNTAINOUS,
         'desert': TerrainType.DESERT,
     }
-    terrain_type = terrain_map.get(input_dict['terrain'].lower())
+    terrain_type = terrain_map.get(terrain_input.lower())
     if terrain_type is None:
-        raise ValueError(f"Unknown terrain type: {input_dict['terrain']}")
+        raise ValueError(f"Unknown terrain type: {terrain_input}")
+    
+    # Derive wind zone from location if route coordinates available, otherwise use manual input
+    route_coordinates = input_dict.get('route_coordinates')  # Get route_coordinates for wind derivation
+    wind_input = input_dict.get('wind')
+    wind_source = "user-selected"
+    is_wind_auto_detected = False
+    
+    if route_coordinates and len(route_coordinates) > 0:
+        # Try to auto-derive wind zone from location
+        first_coord = route_coordinates[0]
+        lat = first_coord.get("lat")
+        lon = first_coord.get("lon")
+        
+        if lat is not None and lon is not None:
+            country_code = reverse_geocode_simple(lat, lon)
+            if country_code:
+                derived_wind, is_auto = derive_wind_zone_from_location(country_code, lat, lon)
+                if derived_wind and is_auto:
+                    # Use auto-detected wind if user didn't explicitly override
+                    if not wind_input:
+                        wind_input = derived_wind
+                        wind_source = "map-derived"
+                        is_wind_auto_detected = True
+                    else:
+                        # User provided wind, check if it matches auto-detected
+                        if wind_input.lower() == derived_wind.lower():
+                            # User selection matches auto-detection
+                            wind_source = "map-derived"
+                            is_wind_auto_detected = True
+                        else:
+                            # User overrode, keep their selection but mark it
+                            wind_source = "user-selected"
+                else:
+                    # Auto-detection failed, use manual input
+                    if not wind_input:
+                        raise ValueError("Wind zone is required. Could not auto-detect from location.")
+            else:
+                # Country detection failed, use manual input
+                if not wind_input:
+                    raise ValueError("Wind zone is required. Could not determine country from coordinates.")
+        else:
+            # Coordinates missing, use manual input
+            if not wind_input:
+                raise ValueError("Wind zone is required. Route coordinates missing lat/lon.")
+    else:
+        # No route coordinates, require manual input
+        if not wind_input:
+            raise ValueError("Wind zone is required. Either provide route_coordinates or wind.")
     
     # Parse wind zone
     wind_map = {
@@ -98,9 +194,9 @@ def parse_input_dict(input_dict: Dict[str, Any]) -> tuple[OptimizationInputs, To
         '3': WindZone.ZONE_3,
         '4': WindZone.ZONE_4,
     }
-    wind_zone = wind_map.get(input_dict['wind'].lower())
+    wind_zone = wind_map.get(wind_input.lower())
     if wind_zone is None:
-        raise ValueError(f"Unknown wind zone: {input_dict['wind']}")
+        raise ValueError(f"Unknown wind zone: {wind_input}")
     
     # Handle higher wind design scenario
     design_wind_zone = wind_zone
@@ -134,12 +230,80 @@ def parse_input_dict(input_dict: Dict[str, Any]) -> tuple[OptimizationInputs, To
     if tower_type is None:
         raise ValueError(f"Unknown tower type: {input_dict['tower']}")
     
-    # Resolve governing standard
-    governing_standard = get_governing_standard(input_dict['location'])
+    # Use geo_context for geographic resolution (map-driven)
+    geo_context_dict = input_dict.get('geo_context')
+    geo_context = None
+    if geo_context_dict:
+        geo_context = GeoContext(**geo_context_dict)
+    
+    # Resolve governing standard from geo_context
+    standard_code, resolution_mode, standard_explanation = resolve_governing_standard(geo_context)
+    
+    # FALLBACK: If geo_context is None or unresolved, try to derive from route_coordinates
+    if (resolution_mode == ResolutionMode.GENERIC_PHYSICS_ONLY or standard_code is None) and route_coordinates:
+        # Try to derive location and standard from route coordinates
+        derived_location, derived_standard_str, is_auto = derive_location_from_coordinates(route_coordinates)
+        if derived_location and derived_standard_str:
+            # Use derived standard
+            standard_code = derived_standard_str
+            resolution_mode = ResolutionMode.MAP_DERIVED
+            standard_explanation = (
+                f"Governing standard '{derived_standard_str}' determined from route coordinates "
+                f"(country code derived from first coordinate)."
+            )
+            location = derived_location
+            is_location_auto_detected = True
+            # Map standard code to DesignStandard enum
+            standard_map = {
+                "IS": DesignStandard.IS,
+                "IEC": DesignStandard.IEC,
+                "EUROCODE": DesignStandard.EUROCODE,
+                "ASCE": DesignStandard.ASCE,
+            }
+            governing_standard = standard_map.get(standard_code, DesignStandard.IEC)
+            input_dict['_resolution_mode'] = resolution_mode.value
+            input_dict['_standard_explanation'] = standard_explanation
+        else:
+            # Fallback to generic physics
+            governing_standard = DesignStandard.IEC
+            location = "Generic (Physics Only)"
+            is_location_auto_detected = False
+            input_dict['_resolution_mode'] = "generic-physics-only"
+            input_dict['_standard_explanation'] = standard_explanation
+    elif resolution_mode == ResolutionMode.GENERIC_PHYSICS_ONLY or standard_code is None:
+        # Use a generic standard that applies basic physics (IEC is most generic)
+        governing_standard = DesignStandard.IEC
+        location = "Generic (Physics Only)"
+        is_location_auto_detected = False
+        input_dict['_resolution_mode'] = "generic-physics-only"
+        input_dict['_standard_explanation'] = standard_explanation
+    else:
+        # Map standard code to DesignStandard enum
+        standard_map = {
+            "IS": DesignStandard.IS,
+            "IEC": DesignStandard.IEC,
+            "EUROCODE": DesignStandard.EUROCODE,
+            "ASCE": DesignStandard.ASCE,
+        }
+        governing_standard = standard_map.get(standard_code, DesignStandard.IEC)
+        location = geo_context.country_name if geo_context and geo_context.country_name else "Unknown"
+        is_location_auto_detected = resolution_mode == ResolutionMode.MAP_DERIVED
+        input_dict['_resolution_mode'] = resolution_mode.value
+        input_dict['_standard_explanation'] = standard_explanation
+    
+    # Store geo_context for later use
+    input_dict['_geo_context'] = geo_context
+    
+    # Store auto-detection flags for confidence scoring
+    input_dict['_location_auto_detected'] = is_location_auto_detected
+    input_dict['_wind_auto_detected'] = is_wind_auto_detected
+    input_dict['_terrain_auto_detected'] = is_terrain_auto_detected
+    input_dict['_wind_source'] = wind_source
+    input_dict['_terrain_source'] = terrain_source
     
     # Create optimization inputs
     inputs = OptimizationInputs(
-        project_location=input_dict['location'],
+        project_location=location,
         voltage_level=input_dict['voltage'],
         terrain_type=terrain_type,
         wind_zone=design_wind_zone,
@@ -307,6 +471,14 @@ def run_optimization(input_dict: Dict[str, Any]) -> Dict[str, Any]:
             # If already unsafe, append bounds violations
             result.safety_violations.extend(bounds_violations)
     
+    # Secondary sanity check: Geometry-coupled base width constraint
+    # This is informational only - does NOT mark design as unsafe
+    geometry_satisfied, geometry_message = check_geometry_constraint(result.best_design)
+    if not geometry_satisfied and geometry_message:
+        # Log geometry correction (informational, not a violation)
+        print(f"INFO: {geometry_message}")
+        # Note: This is NOT added to safety_violations - it's a correction, not a failure
+    
     # Convert to canonical format
     # Get project length if provided (for line-level estimates)
     project_length_km = input_dict.get('project_length_km')
@@ -321,6 +493,13 @@ def run_optimization(input_dict: Dict[str, Any]) -> Dict[str, Any]:
         project_length_km=project_length_km,
         route_coordinates=route_coordinates,
         row_mode=input_dict.get('row_mode', 'urban_private'),
+        terrain_profile=input_dict.get('terrain_profile'),
+        location_auto_detected=input_dict.get('_location_auto_detected', False),
+        wind_source=input_dict.get('_wind_source'),
+        terrain_source=input_dict.get('_terrain_source'),
+        geo_context=input_dict.get('_geo_context'),
+        resolution_mode=input_dict.get('_resolution_mode'),
+        standard_explanation=input_dict.get('_standard_explanation'),
     )
     
     # Convert Pydantic model to dict for JSON serialization
