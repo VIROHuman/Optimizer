@@ -132,6 +132,8 @@ class CostContextResponse(BaseModel):
     cost_per_km: float = Field(..., description="Cost per kilometer")
     primary_cost_drivers: List[str] = Field(default_factory=list, description="List of primary cost drivers")
     interpretation: str = Field(..., description="Plain-language interpretation of cost")
+    foundation_uncertainty_note: Optional[str] = Field(None, description="Note about foundation classification uncertainty")
+    terrain_contribution_note: Optional[str] = Field(None, description="Note about terrain contribution to cost variance")
 
 
 class CurrencyContextResponse(BaseModel):

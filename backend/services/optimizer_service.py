@@ -239,6 +239,7 @@ def parse_input_dict(input_dict: Dict[str, Any]) -> tuple[OptimizationInputs, To
     # Resolve governing standard from geo_context
     standard_code, resolution_mode, standard_explanation = resolve_governing_standard(geo_context)
     
+    # FIX 5: Location is NEVER user-typed, always derived from route geometry
     # FALLBACK: If geo_context is None or unresolved, try to derive from route_coordinates
     if (resolution_mode == ResolutionMode.GENERIC_PHYSICS_ONLY or standard_code is None) and route_coordinates:
         # Try to derive location and standard from route coordinates

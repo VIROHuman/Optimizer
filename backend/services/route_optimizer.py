@@ -2,6 +2,15 @@
 Route-Level Optimization Service.
 
 Orchestrates auto-spotter + per-tower optimizer + canonical aggregation.
+
+SYSTEM POSITIONING:
+This system operates upstream of detailed design tools.
+It narrows corridors, budgets risk, and guides engineering effort.
+
+This tool is NOT a member-level structural design engine and must NOT
+attempt to compete with PLS-CADD.
+
+Target accuracy: ±25-30% for feasibility/DPR-stage estimates.
 """
 
 from typing import List, Dict, Any, Optional
@@ -474,6 +483,11 @@ def _create_span_response(
         else:
             governing_reason = span_selection_reason
     
+    # FIX 3: Add ruling span disclaimer if applicable
+    if governing_reason and "ruling span" in governing_reason.lower():
+        if not governing_reason.endswith("Full multi-span equilibrium not solved."):
+            governing_reason += " Ruling span approximated. Full multi-span equilibrium not solved."
+    
     return SpanResponse(
         from_tower_index=from_tower_index,
         to_tower_index=to_tower_index,
@@ -803,6 +817,26 @@ def _aggregate_route_results(
         row_mode=row_mode,
     )
     
+    # FIX 3: Calculate ruling span for strain sections
+    from backend.services.ruling_span import group_towers_into_strain_sections, get_ruling_span_advisory
+    strain_sections = group_towers_into_strain_sections(
+        [t.dict() for t in towers],
+        [s.dict() for s in spans]
+    )
+    
+    # Add ruling span advisories
+    ruling_span_advisories = []
+    for section in strain_sections:
+        advisory = get_ruling_span_advisory(section['ruling_span_m'], inputs.voltage_level)
+        if advisory:
+            ruling_span_advisories.append({
+                'risk_name': f"Ruling Span - Section {section['section_index']}",
+                'risk_category': "design_advisory",
+                'reason': advisory,
+                'not_evaluated': "Ruling span approximated. Full multi-span equilibrium not solved.",
+                'suggested_action': "Verify conductor tension and sag limits with detailed design tools.",
+            })
+    
     # Warnings and advisories
     warnings = []
     advisories = [
@@ -815,6 +849,9 @@ def _aggregate_route_results(
         }
         for adv in risk_advisories
     ]
+    
+    # Add ruling span advisories
+    advisories.extend(ruling_span_advisories)
     
     ref_status = IntelligenceManager().get_reference_status()
     reference_data_status = {

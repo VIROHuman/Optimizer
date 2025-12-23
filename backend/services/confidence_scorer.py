@@ -147,6 +147,21 @@ def calculate_confidence_score_with_drivers(
     elif resolution_mode:
         drivers.append(f"Geographic resolution mode: {resolution_mode}")
     
+    # FIX 8: Foundation classification uncertainty
+    # Foundation costs are classification-based, not design-based
+    confidence -= 10
+    drivers.append("Foundation costs are classification-based (not detailed design)")
+    
+    # FIX 8: Never exceed 85% without survey-grade data
+    # Require survey-grade terrain and geotech for high confidence
+    has_survey_grade_terrain = has_terrain_profile and terrain_auto_detected
+    has_geotech_inputs = has_soil_survey
+    
+    if not (has_survey_grade_terrain and has_geotech_inputs):
+        if confidence > 85:
+            confidence = 85
+            drivers.append("⚠️ Confidence capped at 85% - requires survey-grade terrain and geotech inputs")
+    
     # Minimum confidence
     confidence = max(50, confidence)
     

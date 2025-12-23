@@ -51,6 +51,9 @@ def calculate_steel_weight_kg(design: TowerDesign, inputs: OptimizationInputs) -
     Calculate steel weight in kg for a tower design.
     
     Uses same formula as cost engine but returns weight instead of cost.
+    
+    FIX 1: Applies Tower Efficiency Calibration Factors to reduce steel weights
+    by 20-35% for feasibility-grade accuracy. This is calibration, not design.
     """
     # Lattice factor (empirical, range 0.08 - 0.12)
     k = 0.10
@@ -64,16 +67,58 @@ def calculate_steel_weight_kg(design: TowerDesign, inputs: OptimizationInputs) -
     }
     multiplier = type_multiplier.get(design.tower_type.value, 1.0)
     
-    # Base steel weight in tonnes
-    steel_weight_tonnes = k * design.tower_height * design.base_width * multiplier
+    # Base steel weight in tonnes (raw calculation)
+    raw_steel_weight_tonnes = k * design.tower_height * design.base_width * multiplier
     
     # Ice load coupling
     if inputs.include_ice_load:
         ice_multiplier = 1.35
-        steel_weight_tonnes *= ice_multiplier
+        raw_steel_weight_tonnes *= ice_multiplier
+    
+    # FIX 1: Tower Efficiency Calibration Factors
+    # These factors calibrate raw geometry-based steel weights to feasibility-grade
+    # tower family efficiency. This reduces bloated weights by 20-35%.
+    # This is CALIBRATION, not design - we're adjusting for known over-estimation.
+    TOWER_EFFICIENCY = {
+        "suspension": 0.65,  # 35% reduction - suspension towers are most efficient
+        "angle": 0.75,       # 25% reduction
+        "tension": 0.75,     # 25% reduction (same as angle)
+        "dead_end": 0.85,    # 15% reduction - dead-end towers need more steel
+    }
+    
+    efficiency_factor = TOWER_EFFICIENCY.get(design.tower_type.value, 0.70)
+    
+    # Apply efficiency calibration
+    effective_steel_weight_tonnes = raw_steel_weight_tonnes * efficiency_factor
+    
+    # Safety check: Never reduce below known minimums from reference towers
+    # Minimum steel weight thresholds (tonnes) based on typical reference towers
+    MIN_STEEL_WEIGHT_TONNES = {
+        "suspension": 2.0,   # Minimum for 25m suspension tower
+        "angle": 2.5,        # Minimum for 30m angle tower
+        "tension": 2.5,      # Minimum for 30m tension tower
+        "dead_end": 3.5,     # Minimum for 35m dead-end tower
+    }
+    
+    min_weight = MIN_STEEL_WEIGHT_TONNES.get(design.tower_type.value, 2.0)
+    if effective_steel_weight_tonnes < min_weight:
+        effective_steel_weight_tonnes = min_weight
     
     # Convert to kg
-    return steel_weight_tonnes * 1000.0
+    effective_steel_weight_kg = effective_steel_weight_tonnes * 1000.0
+    
+    # Log calibration for transparency
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.debug(
+        f"Steel weight calibrated: {design.tower_type.value} tower, "
+        f"raw={raw_steel_weight_tonnes:.2f}t, "
+        f"effective={effective_steel_weight_tonnes:.2f}t "
+        f"(efficiency={efficiency_factor:.2f}). "
+        f"Steel calibrated to feasibility-grade tower family efficiency."
+    )
+    
+    return effective_steel_weight_kg
 
 
 def calculate_concrete_volume_m3(design: TowerDesign) -> float:

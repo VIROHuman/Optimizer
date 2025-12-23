@@ -1,6 +1,18 @@
 # Transmission Tower Optimization System
 
-**Larsen & Toubro Power** - A full-stack engineering application for optimizing transmission tower designs with physics-based calculations, PSO optimization, codal compliance checks, and cost estimation.
+**Larsen & Toubro Power** - A route-level transmission line feasibility optimizer for pre-engineering decision support.
+
+## 🎯 System Positioning
+
+**This system operates upstream of detailed design tools.**
+
+It narrows corridors, budgets risk, and guides engineering effort. This tool is NOT a member-level structural design engine and must NOT attempt to compete with PLS-CADD.
+
+**Target Accuracy:** ±25-30% for feasibility/DPR-stage estimates.
+
+**Purpose:** Pre-engineering decision support, corridor selection, and early-stage budgeting.
+
+**Detailed engineering requires dedicated structural analysis software (e.g., PLS-CADD).**
 
 ## Architecture
 

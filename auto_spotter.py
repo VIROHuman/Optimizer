@@ -368,6 +368,10 @@ class AutoSpotter:
         6. Handle end-of-line: if remaining < 2*min_span, divide equally
         7. Repeat until route ends
         
+        NOTE (FIX 2): Current implementation uses greedy optimization (evaluates single spans).
+        Future enhancement: Heuristic optimization evaluating span combinations (e.g., [450, 300, 450])
+        to optimize total cost across strain sections, not just individual spans.
+        
         Args:
             terrain_profile: Terrain elevation profile
             route_start_lat: Optional starting latitude

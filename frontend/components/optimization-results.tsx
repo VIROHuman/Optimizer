@@ -295,6 +295,20 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
                   </p>
                 </div>
               )}
+              {costContext.foundation_uncertainty_note && (
+                <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-950/20 rounded-md border border-amber-200 dark:border-amber-800">
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    <strong>Note:</strong> {costContext.foundation_uncertainty_note}
+                  </p>
+                </div>
+              )}
+              {costContext.terrain_contribution_note && (
+                <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded-md border border-blue-200 dark:border-blue-800">
+                  <p className="text-xs text-blue-700 dark:text-blue-400">
+                    <strong>Note:</strong> {costContext.terrain_contribution_note}
+                  </p>
+                </div>
+              )}
             </dl>
           </CardContent>
         </Card>
@@ -412,11 +426,17 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
                     const costAnalysis = analyzeTowerCostDrivers(tower)
                     return (
                       <React.Fragment key={idx}>
-                        <tr className="border-b border-border hover:bg-muted/50">
-                          <td className="p-2">
+                        {/* Main Tower Row */}
+                        <tr className={`
+                          border-b border-border/60
+                          hover:bg-muted/50
+                          transition-colors duration-150
+                          ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'}
+                        `}>
+                          <td className="p-3">
                             <button
                               onClick={() => toggleTowerExpansion(tower.index)}
-                              className="text-muted-foreground hover:text-foreground"
+                              className="text-muted-foreground hover:text-foreground transition-colors"
                             >
                               {isExpanded ? (
                                 <ChevronUp className="h-4 w-4" />
@@ -425,24 +445,28 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
                               )}
                             </button>
                           </td>
-                          <td className="p-2 font-medium">{tower.index}</td>
-                          <td className="p-2">{tower.tower_type}</td>
-                          <td className="p-2">{tower.total_height_m?.toFixed(2)}</td>
-                          <td className="p-2">{tower.base_width_m?.toFixed(2) || "N/A"}</td>
-                          <td className="p-2">{tower.steel_weight_kg?.toLocaleString()}</td>
-                          <td className="p-2">
+                          <td className="p-3 font-medium">{tower.index}</td>
+                          <td className="p-3">
+                            <span className="px-2 py-1 rounded-md bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 text-xs font-medium">
+                              {tower.tower_type}
+                            </span>
+                          </td>
+                          <td className="p-3">{tower.total_height_m?.toFixed(2)}</td>
+                          <td className="p-3">{tower.base_width_m?.toFixed(2) || "N/A"}</td>
+                          <td className="p-3">{tower.steel_weight_kg?.toLocaleString()}</td>
+                          <td className="p-3">
                             <div className="flex items-center gap-2">
-                              {formatCostDecimal(tower.total_cost || 0)}
+                              <span className="font-semibold">{formatCostDecimal(tower.total_cost || 0)}</span>
                               <button
                                 onClick={() => setCostDriverDialog({ open: true, tower })}
-                                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                                 title="View cost drivers"
                               >
                                 <Info className="h-4 w-4" />
                               </button>
                             </div>
                           </td>
-                          <td className="p-2">
+                          <td className="p-3">
                             <Badge
                               variant={tower.safety_status === "SAFE" ? "default" : "secondary"}
                               className={tower.safety_status === "SAFE" ? "bg-green-600" : ""}
@@ -450,86 +474,119 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
                               {tower.safety_status}
                             </Badge>
                           </td>
-                          <td className="p-2">
+                          <td className="p-3">
                             {costAnalysis.costDiffPercent > 10 && (
                               <TrendingUp className="h-4 w-4 text-amber-600" title="Above average cost" />
                             )}
                           </td>
                         </tr>
+                        {/* Expanded Details Row */}
                         {isExpanded && (
-                          <tr className="border-b border-border bg-muted/30">
-                            <td colSpan={9} className="p-4">
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                <div>
-                                  <dt className="text-muted-foreground">Base Height</dt>
-                                  <dd className="font-medium">{tower.base_height_m?.toFixed(2) || "N/A"} m</dd>
-                                </div>
-                                <div>
-                                  <dt className="text-muted-foreground">Body Extension</dt>
-                                  <dd className="font-medium">{tower.body_extension_m?.toFixed(2) || "N/A"} m</dd>
-                                </div>
-                                <div>
-                                  <dt className="text-muted-foreground">Foundation Type</dt>
-                                  <dd className="font-medium">{tower.foundation_type || "N/A"}</dd>
-                                </div>
-                                <div>
-                                  <dt className="text-muted-foreground">Footing Length</dt>
-                                  <dd className="font-medium">{tower.foundation_dimensions?.length?.toFixed(2) || "N/A"} m</dd>
-                                </div>
-                                <div>
-                                  <dt className="text-muted-foreground">Footing Width</dt>
-                                  <dd className="font-medium">{tower.foundation_dimensions?.width?.toFixed(2) || "N/A"} m</dd>
-                                </div>
-                                <div>
-                                  <dt className="text-muted-foreground">Footing Depth</dt>
-                                  <dd className="font-medium">{tower.foundation_dimensions?.depth?.toFixed(2) || "N/A"} m</dd>
-                                </div>
-                                {tower.deviation_angle_deg !== null && tower.deviation_angle_deg !== undefined && (
-                                  <div>
-                                    <dt className="text-muted-foreground">Deviation Angle</dt>
-                                    <dd className="font-medium">{tower.deviation_angle_deg.toFixed(1)}°</dd>
+                          <tr className="border-b-2 border-border/80">
+                            <td colSpan={9} className="p-0">
+                              <div className="px-6 py-5 bg-gradient-to-br from-muted/40 to-muted/20 border-l-4 border-l-blue-500 dark:border-l-blue-400 shadow-sm">
+                                <div className="space-y-4">
+                                  {/* Design Parameters Section */}
+                                  <div className="pb-3 border-b border-border/50">
+                                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                                      <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                      Design Parameters
+                                    </h4>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                      <div>
+                                        <dt className="text-muted-foreground text-xs mb-1">Base Height</dt>
+                                        <dd className="font-medium">{tower.base_height_m?.toFixed(2) || "N/A"} m</dd>
+                                      </div>
+                                      <div>
+                                        <dt className="text-muted-foreground text-xs mb-1">Body Extension</dt>
+                                        <dd className="font-medium">{tower.body_extension_m?.toFixed(2) || "N/A"} m</dd>
+                                      </div>
+                                      <div>
+                                        <dt className="text-muted-foreground text-xs mb-1">Foundation Type</dt>
+                                        <dd className="font-medium">{tower.foundation_type || "N/A"}</dd>
+                                      </div>
+                                      <div>
+                                        <dt className="text-muted-foreground text-xs mb-1">Footing Length</dt>
+                                        <dd className="font-medium">{tower.foundation_dimensions?.length?.toFixed(2) || "N/A"} m</dd>
+                                      </div>
+                                      <div>
+                                        <dt className="text-muted-foreground text-xs mb-1">Footing Width</dt>
+                                        <dd className="font-medium">{tower.foundation_dimensions?.width?.toFixed(2) || "N/A"} m</dd>
+                                      </div>
+                                      <div>
+                                        <dt className="text-muted-foreground text-xs mb-1">Footing Depth</dt>
+                                        <dd className="font-medium">{tower.foundation_dimensions?.depth?.toFixed(2) || "N/A"} m</dd>
+                                      </div>
+                                      {tower.deviation_angle_deg !== null && tower.deviation_angle_deg !== undefined && (
+                                        <div>
+                                          <dt className="text-muted-foreground text-xs mb-1">Deviation Angle</dt>
+                                          <dd className="font-medium">{tower.deviation_angle_deg.toFixed(1)}°</dd>
+                                        </div>
+                                      )}
+                                      {tower.distance_along_route_m !== null && tower.distance_along_route_m !== undefined && (
+                                        <div>
+                                          <dt className="text-muted-foreground text-xs mb-1">Distance</dt>
+                                          <dd className="font-medium">{(tower.distance_along_route_m / 1000).toFixed(2)} km</dd>
+                                        </div>
+                                      )}
+                                      {tower.governing_load_case && (
+                                        <div className="col-span-2">
+                                          <dt className="text-muted-foreground text-xs mb-1">Governing Load Case</dt>
+                                          <dd className="font-medium text-amber-600 dark:text-amber-400">{tower.governing_load_case}</dd>
+                                        </div>
+                                      )}
+                                      {tower.governing_uplift_case && (
+                                        <div className="col-span-2">
+                                          <dt className="text-muted-foreground text-xs mb-1">Governing Uplift Case</dt>
+                                          <dd className="font-medium text-amber-600 dark:text-amber-400">{tower.governing_uplift_case}</dd>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                )}
-                                {tower.distance_along_route_m !== null && tower.distance_along_route_m !== undefined && (
-                                  <div>
-                                    <dt className="text-muted-foreground">Distance</dt>
-                                    <dd className="font-medium">{(tower.distance_along_route_m / 1000).toFixed(2)} km</dd>
-                                  </div>
-                                )}
-                                {tower.governing_load_case && (
-                                  <div className="col-span-2">
-                                    <dt className="text-muted-foreground">Governing Load Case</dt>
-                                    <dd className="font-medium text-amber-600">{tower.governing_load_case}</dd>
-                                  </div>
-                                )}
-                                {tower.governing_uplift_case && (
-                                  <div className="col-span-2">
-                                    <dt className="text-muted-foreground">Governing Uplift Case</dt>
-                                    <dd className="font-medium text-amber-600">{tower.governing_uplift_case}</dd>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="mt-4 pt-4 border-t border-border">
-                                <dt className="text-muted-foreground mb-2">Cost Breakdown:</dt>
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
-                                  <div>
-                                    <span className="text-muted-foreground">Steel:</span> {formatCostDecimal(tower.steel_cost || 0)} ({costAnalysis.percentages.steel?.toFixed(1)}%)
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground">Foundation:</span> {formatCostDecimal(tower.foundation_cost || 0)} ({costAnalysis.percentages.foundation?.toFixed(1)}%)
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground">Erection:</span> {formatCostDecimal(tower.erection_cost || 0)} ({costAnalysis.percentages.erection?.toFixed(1)}%)
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground">Transport:</span> {formatCostDecimal(tower.transport_cost || 0)} ({costAnalysis.percentages.transport?.toFixed(1)}%)
-                                  </div>
-                                  <div>
-                                    <span className="text-muted-foreground">Land/ROW:</span> {formatCostDecimal(tower.land_ROW_cost || 0)} ({costAnalysis.percentages.land?.toFixed(1)}%)
+                                  
+                                  {/* Cost Breakdown Section */}
+                                  <div className="pt-3">
+                                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                                      <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                      Cost Breakdown
+                                    </h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                                      <div className="p-3 rounded-md bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                                        <div className="text-xs text-muted-foreground mb-1">Steel</div>
+                                        <div className="font-semibold text-blue-700 dark:text-blue-300">{formatCostDecimal(tower.steel_cost || 0)}</div>
+                                        <div className="text-xs text-muted-foreground mt-1">{costAnalysis.percentages.steel?.toFixed(1)}%</div>
+                                      </div>
+                                      <div className="p-3 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                                        <div className="text-xs text-muted-foreground mb-1">Foundation</div>
+                                        <div className="font-semibold text-amber-700 dark:text-amber-300">{formatCostDecimal(tower.foundation_cost || 0)}</div>
+                                        <div className="text-xs text-muted-foreground mt-1">{costAnalysis.percentages.foundation?.toFixed(1)}%</div>
+                                      </div>
+                                      <div className="p-3 rounded-md bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
+                                        <div className="text-xs text-muted-foreground mb-1">Erection</div>
+                                        <div className="font-semibold text-purple-700 dark:text-purple-300">{formatCostDecimal(tower.erection_cost || 0)}</div>
+                                        <div className="text-xs text-muted-foreground mt-1">{costAnalysis.percentages.erection?.toFixed(1)}%</div>
+                                      </div>
+                                      <div className="p-3 rounded-md bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800">
+                                        <div className="text-xs text-muted-foreground mb-1">Transport</div>
+                                        <div className="font-semibold text-indigo-700 dark:text-indigo-300">{formatCostDecimal(tower.transport_cost || 0)}</div>
+                                        <div className="text-xs text-muted-foreground mt-1">{costAnalysis.percentages.transport?.toFixed(1)}%</div>
+                                      </div>
+                                      <div className="p-3 rounded-md bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800">
+                                        <div className="text-xs text-muted-foreground mb-1">Land/ROW</div>
+                                        <div className="font-semibold text-teal-700 dark:text-teal-300">{formatCostDecimal(tower.land_ROW_cost || 0)}</div>
+                                        <div className="text-xs text-muted-foreground mt-1">{costAnalysis.percentages.land?.toFixed(1)}%</div>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
                             </td>
+                          </tr>
+                        )}
+                        {/* Spacer row for better visual separation */}
+                        {!isExpanded && idx < towers.length - 1 && (
+                          <tr>
+                            <td colSpan={9} className="h-2 bg-transparent"></td>
                           </tr>
                         )}
                       </React.Fragment>
@@ -1103,6 +1160,7 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
           </CardContent>
         </Card>
       )}
+
     </div>
   )
 }

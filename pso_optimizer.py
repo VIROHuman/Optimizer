@@ -4,6 +4,18 @@ Particle Swarm Optimization (PSO) Module.
 Manual implementation of PSO for transmission tower design optimization.
 
 ═══════════════════════════════════════════════════════════════════════════
+SYSTEM POSITIONING:
+═══════════════════════════════════════════════════════════════════════════
+
+This system operates upstream of detailed design tools.
+It narrows corridors, budgets risk, and guides engineering effort.
+
+This tool is NOT a member-level structural design engine and must NOT
+attempt to compete with PLS-CADD.
+
+Target accuracy: ±25-30% for feasibility/DPR-stage estimates.
+
+═══════════════════════════════════════════════════════════════════════════
 CORE CONTRACT (NON-NEGOTIABLE):
 ═══════════════════════════════════════════════════════════════════════════
 
@@ -18,6 +30,9 @@ This optimizer MUST always return the cheapest SAFE design.
 The optimizer is code-agnostic and relies entirely on the codal engine
 for safety validation. Cost minimization is the objective, safety is
 a hard constraint enforced via penalty.
+
+Steel weights are calibrated using Tower Efficiency Factors (FIX 1).
+This is calibration, not design - adjusting for known over-estimation.
 ═══════════════════════════════════════════════════════════════════════════
 """
 
