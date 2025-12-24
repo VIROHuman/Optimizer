@@ -16,14 +16,7 @@ from backend.services.location_deriver import (
     derive_wind_zone_from_location,
     classify_terrain_from_elevation_profile,
     reverse_geocode_simple,
-    COUNTRY_CODE_TO_STANDARD,
 )
-from backend.services.geo_resolver import (
-    resolve_governing_standard,
-    resolve_currency_from_geo,
-    ResolutionMode,
-)
-from backend.models.geo_context import GeoContext
 from data_models import DesignStandard
 from codal_engine import (
     ISEngine, IECEngine, EurocodeEngine, ASCEEngine
@@ -38,7 +31,7 @@ from constructability_engine import check_constructability
 from regional_risk_registry import get_regional_risks
 from dominant_risk_advisory import generate_risk_advisories
 from intelligence.intelligence_manager import IntelligenceManager
-from backend.services.design_validator import validate_design_bounds, check_geometry_constraint
+from backend.services.design_validator import validate_design_bounds
 from backend.services.canonical_converter import convert_to_canonical
 
 
@@ -59,8 +52,7 @@ def create_codal_engine(standard: DesignStandard):
         DesignStandard.ASCE: ASCEEngine,
     }
     
-    # IEC is the most generic standard - use it as fallback for GENERIC_PHYSICS_ONLY mode
-    engine_class = engines.get(standard, IECEngine)
+    engine_class = engines.get(standard)
     if engine_class is None:
         raise ValueError(f"Unsupported design standard: {standard}")
     
@@ -230,70 +222,35 @@ def parse_input_dict(input_dict: Dict[str, Any]) -> tuple[OptimizationInputs, To
     if tower_type is None:
         raise ValueError(f"Unknown tower type: {input_dict['tower']}")
     
-    # Use geo_context for geographic resolution (map-driven)
-    geo_context_dict = input_dict.get('geo_context')
-    geo_context = None
-    if geo_context_dict:
-        geo_context = GeoContext(**geo_context_dict)
+    # Derive location from route coordinates if available, otherwise use manual input
+    route_coordinates = input_dict.get('route_coordinates')
+    location = input_dict.get('location')
+    is_location_auto_detected = False
     
-    # Resolve governing standard from geo_context
-    standard_code, resolution_mode, standard_explanation = resolve_governing_standard(geo_context)
-    
-    # FIX 5: Location is NEVER user-typed, always derived from route geometry
-    # FALLBACK: If geo_context is None or unresolved, try to derive from route_coordinates
-    if (resolution_mode == ResolutionMode.GENERIC_PHYSICS_ONLY or standard_code is None) and route_coordinates:
-        # Try to derive location and standard from route coordinates
+    if route_coordinates and len(route_coordinates) > 0:
+        # Auto-detect location from coordinates
         derived_location, derived_standard_str, is_auto = derive_location_from_coordinates(route_coordinates)
         if derived_location and derived_standard_str:
-            # Use derived standard
-            standard_code = derived_standard_str
-            resolution_mode = ResolutionMode.MAP_DERIVED
-            standard_explanation = (
-                f"Governing standard '{derived_standard_str}' determined from route coordinates "
-                f"(country code derived from first coordinate)."
-            )
             location = derived_location
-            is_location_auto_detected = True
-            # Map standard code to DesignStandard enum
+            is_location_auto_detected = is_auto
+            # Convert standard string to enum
             standard_map = {
                 "IS": DesignStandard.IS,
                 "IEC": DesignStandard.IEC,
                 "EUROCODE": DesignStandard.EUROCODE,
                 "ASCE": DesignStandard.ASCE,
             }
-            governing_standard = standard_map.get(standard_code, DesignStandard.IEC)
-            input_dict['_resolution_mode'] = resolution_mode.value
-            input_dict['_standard_explanation'] = standard_explanation
+            governing_standard = standard_map.get(derived_standard_str, DesignStandard.IS)
         else:
-            # Fallback to generic physics
-            governing_standard = DesignStandard.IEC
-            location = "Generic (Physics Only)"
-            is_location_auto_detected = False
-            input_dict['_resolution_mode'] = "generic-physics-only"
-            input_dict['_standard_explanation'] = standard_explanation
-    elif resolution_mode == ResolutionMode.GENERIC_PHYSICS_ONLY or standard_code is None:
-        # Use a generic standard that applies basic physics (IEC is most generic)
-        governing_standard = DesignStandard.IEC
-        location = "Generic (Physics Only)"
-        is_location_auto_detected = False
-        input_dict['_resolution_mode'] = "generic-physics-only"
-        input_dict['_standard_explanation'] = standard_explanation
+            # Fallback to manual location if auto-detection fails
+            if not location:
+                raise ValueError("Location is required. Could not auto-detect from coordinates.")
+            governing_standard = get_governing_standard(location)
     else:
-        # Map standard code to DesignStandard enum
-        standard_map = {
-            "IS": DesignStandard.IS,
-            "IEC": DesignStandard.IEC,
-            "EUROCODE": DesignStandard.EUROCODE,
-            "ASCE": DesignStandard.ASCE,
-        }
-        governing_standard = standard_map.get(standard_code, DesignStandard.IEC)
-        location = geo_context.country_name if geo_context and geo_context.country_name else "Unknown"
-        is_location_auto_detected = resolution_mode == ResolutionMode.MAP_DERIVED
-        input_dict['_resolution_mode'] = resolution_mode.value
-        input_dict['_standard_explanation'] = standard_explanation
-    
-    # Store geo_context for later use
-    input_dict['_geo_context'] = geo_context
+        # Use manual location input
+        if not location:
+            raise ValueError("Location is required. Either provide route_coordinates or location.")
+        governing_standard = get_governing_standard(location)
     
     # Store auto-detection flags for confidence scoring
     input_dict['_location_auto_detected'] = is_location_auto_detected
@@ -472,14 +429,6 @@ def run_optimization(input_dict: Dict[str, Any]) -> Dict[str, Any]:
             # If already unsafe, append bounds violations
             result.safety_violations.extend(bounds_violations)
     
-    # Secondary sanity check: Geometry-coupled base width constraint
-    # This is informational only - does NOT mark design as unsafe
-    geometry_satisfied, geometry_message = check_geometry_constraint(result.best_design)
-    if not geometry_satisfied and geometry_message:
-        # Log geometry correction (informational, not a violation)
-        print(f"INFO: {geometry_message}")
-        # Note: This is NOT added to safety_violations - it's a correction, not a failure
-    
     # Convert to canonical format
     # Get project length if provided (for line-level estimates)
     project_length_km = input_dict.get('project_length_km')
@@ -498,9 +447,6 @@ def run_optimization(input_dict: Dict[str, Any]) -> Dict[str, Any]:
         location_auto_detected=input_dict.get('_location_auto_detected', False),
         wind_source=input_dict.get('_wind_source'),
         terrain_source=input_dict.get('_terrain_source'),
-        geo_context=input_dict.get('_geo_context'),
-        resolution_mode=input_dict.get('_resolution_mode'),
-        standard_explanation=input_dict.get('_standard_explanation'),
     )
     
     # Convert Pydantic model to dict for JSON serialization

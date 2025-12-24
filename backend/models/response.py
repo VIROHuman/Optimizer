@@ -6,35 +6,6 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
 
-class DesignResponse(BaseModel):
-    """Optimized design parameters."""
-    tower_type: str
-    tower_height: float
-    base_width: float
-    span_length: float
-    foundation_type: str
-    footing_length: float
-    footing_width: float
-    footing_depth: float
-
-
-class CostResponse(BaseModel):
-    """Cost breakdown."""
-    steel_cost: float
-    foundation_cost: float
-    erection_cost: float
-    land_cost: float
-    total_cost: float
-    currency: str
-    currency_symbol: str
-
-
-class SafetyResponse(BaseModel):
-    """Safety status."""
-    is_safe: bool
-    violations: List[str] = []
-
-
 class OptimizationResponse(BaseModel):
     """Complete optimization response."""
     design: Dict[str, Any]

@@ -11,6 +11,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 import sys
 import os
+import logging
+from logging.handlers import RotatingFileHandler
 
 # Add parent directory to path for imports
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -26,9 +28,28 @@ from backend.models.canonical import (
     RegionalContextResponse, TowerSafetyStatus, ConfidenceResponse,
     CurrencyContextResponse
 )
+from backend.models.geo_context import GeographicResolutionResponse
+
+# Rebuild Pydantic models to resolve forward references
+CanonicalOptimizationResult.model_rebuild()
 from backend.services.currency_resolver import resolve_currency
 from backend.services.optimizer_service import run_optimization
 from backend.services.route_optimizer import optimize_route
+
+# Configure logging to file and console
+log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, "backend.log")
+
+# Configure root logger
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5),  # 10MB per file, keep 5 backups
+        logging.StreamHandler()  # Also log to console
+    ]
+)
 
 app = FastAPI(
     title="Transmission Tower Optimization API",
@@ -153,6 +174,7 @@ async def optimize(request: OptimizationRequest):
             latitude=None,
             longitude=None,
             tower_type="suspension",
+            deviation_angle_deg=None,
             base_height_m=16.0,
             body_extension_m=24.0,
             total_height_m=40.0,
@@ -208,6 +230,7 @@ async def optimize(request: OptimizationRequest):
                 erection_total=3000.0,
                 transport_total=600.0,
                 land_ROW_total=1000.0,
+                total_project_cost=13600.0,
                 currency="USD",
                 currency_symbol="$",
             ),

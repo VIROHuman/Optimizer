@@ -22,8 +22,7 @@ Algorithm:
 
 from typing import List, Dict, Tuple, Optional, Any
 from dataclasses import dataclass
-from data_models import OptimizationInputs, TowerDesign, FoundationType, TowerType
-from pso_optimizer import get_base_width_ratio_for_tower_type
+from data_models import OptimizationInputs
 
 
 @dataclass
@@ -43,49 +42,25 @@ class TowerPosition:
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     elevation_m: float = 0.0  # Ground elevation at tower location
-    selected_span_m: Optional[float] = None  # Actual span used to reach this tower
-    span_selection_reason: Optional[str] = None  # Reason for span selection (e.g., "cheapest safe", "max span", "end-of-line")
-
-
-@dataclass
-class SpanCandidate:
-    """Span candidate evaluation result."""
-    span_length_m: float
-    is_safe: bool
-    required_tower_height_m: float
-    required_base_width_m: float
-    sag_m: float
-    clearance_m: float
-    total_cost: float
-    safety_violations: List[str]
-    cost_breakdown: Dict[str, float]
-    
-    def __lt__(self, other):
-        """Compare by cost (for sorting)."""
-        if not self.is_safe and other.is_safe:
-            return False  # Unsafe is worse
-        if self.is_safe and not other.is_safe:
-            return True  # Safe is better
-        return self.total_cost < other.total_cost
 
 
 class AutoSpotter:
     """
-    Automatic tower placement along route with adaptive span optimization.
+    Automatic tower placement along route.
     
     This module places towers based on:
-    - Span candidate evaluation (300, 340, 380, 420, 450 m)
+    - Maximum allowed span length
     - Terrain clearance requirements
     - Conductor sag calculations
-    - Cost optimization (selects cheapest SAFE span)
-    - Safety validation
     
-    It integrates cost and safety evaluation to select optimal spans.
+    It does NOT:
+    - Optimize tower design (that's optimizer's job)
+    - Calculate costs (that's cost engine's job)
+    - Validate safety (that's codal engine's job)
     """
     
-    # CRITICAL FIX 1: Minimum span length for physical spacing
-    # This prevents towers from being placed too close together
-    MIN_SPAN = 30.0  # meters - absolute minimum physical spacing
+    # CRITICAL: Minimum span length (hard constraint for physical spacing)
+    MIN_SPAN = 30.0  # meters - absolute minimum between any two towers
     
     def __init__(
         self,
@@ -107,21 +82,10 @@ class AutoSpotter:
         """
         self.inputs = inputs
         self.max_span_m = max_span_m
-        self.min_span_m = max(min_span_m, self.MIN_SPAN)  # Ensure min_span >= MIN_SPAN
+        # Ensure min_span_m is at least MIN_SPAN (hard constraint)
+        self.min_span_m = max(min_span_m, self.MIN_SPAN)
         self.clearance_margin_m = clearance_margin_m
         self.step_back_m = step_back_m
-        
-        # Span candidates for adaptive optimization
-        # Default candidates, can be customized
-        self.span_candidates = [300.0, 340.0, 380.0, 420.0, 450.0]
-        # Filter candidates to be within min/max bounds
-        self.span_candidates = [
-            s for s in self.span_candidates 
-            if self.min_span_m <= s <= self.max_span_m
-        ]
-        if not self.span_candidates:
-            # Fallback: use max_span if no candidates in range
-            self.span_candidates = [self.max_span_m]
     
     def calculate_sag(
         self,
@@ -133,7 +97,7 @@ class AutoSpotter:
         Calculate conductor sag at mid-span.
         
         Uses catenary approximation:
-        sag ≈ (weight × span²) / (8 × tension)
+        sag ~= (weight * span^2) / (8 * tension)
         
         Args:
             span_length_m: Span length in meters
@@ -204,120 +168,6 @@ class AutoSpotter:
         
         return is_safe, clearance, violation
     
-    def evaluate_span_candidate(
-        self,
-        span_length_m: float,
-        from_tower: TowerPosition,
-        to_distance_m: float,
-        terrain_profile: List[TerrainPoint],
-        codal_engine: Any,  # CodalEngine instance (avoid circular import)
-    ) -> SpanCandidate:
-        """
-        Evaluate a span candidate for cost and safety.
-        
-        Args:
-            span_length_m: Candidate span length
-            from_tower: Tower at span start
-            to_distance_m: Distance to next tower position
-            terrain_profile: Terrain elevation profile
-            codal_engine: CodalEngine instance for safety validation
-            
-        Returns:
-            SpanCandidate with evaluation results
-        """
-        from cost_engine import calculate_cost_with_breakdown
-        
-        # Calculate sag
-        sag_m = self.calculate_sag(span_length_m)
-        
-        # Get terrain elevation at mid-span
-        mid_distance = (from_tower.distance_along_route_m + to_distance_m) / 2.0
-        mid_elevation = self.interpolate_elevation(mid_distance, terrain_profile)
-        
-        # Get elevation at next tower position
-        to_elevation = self.interpolate_elevation(to_distance_m, terrain_profile)
-        
-        # Calculate required tower height for clearance
-        # Conductor height at mid-span = avg_tower_top - sag
-        # Clearance = conductor_height - mid_elevation >= clearance_margin
-        # Solving: avg_tower_top >= mid_elevation + sag + clearance_margin
-        # Use average of from and to tower heights
-        min_conductor_height = mid_elevation + sag_m + self.clearance_margin_m
-        avg_ground_elevation = (from_tower.elevation_m + to_elevation) / 2.0
-        required_avg_tower_height = min_conductor_height - avg_ground_elevation
-        
-        # Required tower height (use same height for both towers for simplicity)
-        # Voltage-based minimum heights (from PSO optimizer)
-        voltage_min_heights = {
-            132: 25.0,
-            220: 30.0,
-            400: 40.0,
-            765: 50.0,
-            900: 55.0,
-        }
-        voltage = self.inputs.voltage_level
-        min_height = 25.0  # Default minimum
-        for v_level, h in sorted(voltage_min_heights.items()):
-            if voltage >= v_level:
-                min_height = h
-        
-        required_tower_height = max(required_avg_tower_height, min_height)
-        
-        # Create design for evaluation
-        # Use suspension tower as default (most common)
-        tower_type = TowerType.SUSPENSION
-        
-        # Enforce geometry-coupled base width constraint using tower-type-specific ratio
-        tower_type_ratio = get_base_width_ratio_for_tower_type(tower_type)
-        required_base_width = max(required_tower_height * tower_type_ratio, 8.0)  # Minimum 8m base
-        design = TowerDesign(
-            tower_type=tower_type,
-            tower_height=required_tower_height,
-            base_width=required_base_width,
-            span_length=span_length_m,
-            foundation_type=FoundationType.PAD_FOOTING,
-            footing_length=5.0,  # Conservative estimate
-            footing_width=5.0,
-            footing_depth=3.0,
-        )
-        
-        # Validate safety
-        safety_result = codal_engine.is_design_safe(design, self.inputs)
-        
-        # Calculate cost
-        total_cost = 0.0
-        cost_breakdown = {}
-        if safety_result.is_safe:
-            total_cost, cost_breakdown = calculate_cost_with_breakdown(design, self.inputs)
-        else:
-            # Unsafe design gets very high cost
-            total_cost = 1e10
-            cost_breakdown = {
-                'steel_cost': 0.0,
-                'foundation_cost': 0.0,
-                'erection_cost': 0.0,
-                'transport_cost': 0.0,
-                'land_cost': 0.0,
-                'total_cost': total_cost,
-            }
-        
-        # Calculate actual clearance
-        avg_tower_top = avg_ground_elevation + required_tower_height
-        conductor_height = avg_tower_top - sag_m
-        clearance = conductor_height - mid_elevation
-        
-        return SpanCandidate(
-            span_length_m=span_length_m,
-            is_safe=safety_result.is_safe and clearance >= self.clearance_margin_m,
-            required_tower_height_m=required_tower_height,
-            required_base_width_m=required_base_width,
-            sag_m=sag_m,
-            clearance_m=clearance,
-            total_cost=total_cost,
-            safety_violations=safety_result.violations,
-            cost_breakdown=cost_breakdown,
-        )
-    
     def interpolate_elevation(self, distance_m: float, terrain_profile: List[TerrainPoint]) -> float:
         """
         Interpolate elevation at given distance.
@@ -354,39 +204,29 @@ class AutoSpotter:
         terrain_profile: List[TerrainPoint],
         route_start_lat: Optional[float] = None,
         route_start_lon: Optional[float] = None,
-        codal_engine=None,
+        route_coordinates: Optional[List[Dict[str, Any]]] = None,
     ) -> List[TowerPosition]:
         """
-        Place towers along route with adaptive span optimization.
+        Place towers along route based on terrain profile.
         
         Algorithm:
         1. Start at route start (Tower 0)
-        2. Evaluate span candidates: [300, 340, 380, 420, 450] m
-        3. For each candidate: compute sag, clearance, required height, cost, safety
-        4. Select cheapest SAFE span candidate
-        5. Place tower at selected span
-        6. Handle end-of-line: if remaining < 2*min_span, divide equally
-        7. Repeat until route ends
-        
-        NOTE (FIX 2): Current implementation uses greedy optimization (evaluates single spans).
-        Future enhancement: Heuristic optimization evaluating span combinations (e.g., [450, 300, 450])
-        to optimize total cost across strain sections, not just individual spans.
+        2. Attempt max allowed span
+        3. Check sag vs terrain clearance
+        4. If collision: step back 10m and retry
+        5. Place tower when safe
+        6. Repeat until route ends
         
         Args:
             terrain_profile: Terrain elevation profile
             route_start_lat: Optional starting latitude
             route_start_lon: Optional starting longitude
-            codal_engine: CodalEngine instance for safety validation (required for span optimization)
             
         Returns:
-            List of TowerPosition objects with selected span info
+            List of TowerPosition objects
         """
         if not terrain_profile:
             return []
-        
-        # If no codal_engine provided, fall back to simple placement (backward compatibility)
-        if codal_engine is None:
-            return self._place_towers_simple(terrain_profile, route_start_lat, route_start_lon)
         
         towers: List[TowerPosition] = []
         
@@ -394,322 +234,65 @@ class AutoSpotter:
         current_distance = 0.0
         tower_index = 0
         
-        # Get route end distance
-        route_end_distance = terrain_profile[-1].distance_m if terrain_profile else 0.0
+        # Get route end distance (along actual polyline if route_coordinates exist)
+        # CRITICAL: Use the LARGEST available distance to ensure we don't cut off the route
+        route_end_distance = 0.0
+        
+        if route_coordinates and len(route_coordinates) > 0:
+            # Get actual polyline distance from route_coordinates
+            route_end_from_coords = route_coordinates[-1].get('distance_m', 0.0)
+            if route_end_from_coords == 0.0:
+                # Calculate cumulative distance if not provided
+                route_end_from_coords = self._calculate_polyline_total_distance(route_coordinates)
+            route_end_distance = route_end_from_coords
+        
+        # Also check terrain profile distance
+        terrain_end_distance = terrain_profile[-1].distance_m if terrain_profile else 0.0
+        
+        # Use the MAXIMUM of both to ensure we don't miss any part of the route
+        route_end_distance = max(route_end_distance, terrain_end_distance)
+        
+        # Log for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(
+            f"Auto-spotter: route_end_distance={route_end_distance:.2f}m, "
+            f"terrain_profile_end={terrain_end_distance:.2f}m, "
+            f"route_coordinates_count={len(route_coordinates) if route_coordinates else 0}"
+        )
+        
+        if route_end_distance <= 0.0:
+            logger.warning("Route end distance is 0 or negative! Cannot place towers.")
+            return []
+        
+        logger.info(f"Starting tower placement: current_distance={current_distance:.2f}m, route_end={route_end_distance:.2f}m, max_span={self.max_span_m:.2f}m")
         
         while current_distance < route_end_distance:
-            # Calculate remaining distance BEFORE placing tower
-            remaining_distance = route_end_distance - current_distance
-            
-            # CRITICAL FIX 3: If remaining distance is less than MIN_SPAN, do NOT place a new tower
-            # Extend previous span instead (if there's a previous tower)
-            if remaining_distance < self.MIN_SPAN:
-                # Do NOT place a new tower - extend previous span
-                # If we have at least one tower, the last tower's span will extend to route end
-                if towers:
-                    # Update last tower's span to extend to route end
-                    last_tower = towers[-1]
-                    extended_span = route_end_distance - last_tower.distance_along_route_m
-                    if extended_span >= self.MIN_SPAN:
-                        # Place final tower at route end
-                        final_elevation = self.interpolate_elevation(route_end_distance, terrain_profile)
-                        final_lat, final_lon = self._get_coordinates_at_distance(
-                            route_end_distance, terrain_profile, route_start_lat, route_start_lon
-                        )
-                        final_tower = TowerPosition(
-                            index=tower_index,
-                            distance_along_route_m=route_end_distance,
-                            latitude=final_lat,
-                            longitude=final_lon,
-                            elevation_m=final_elevation,
-                            selected_span_m=extended_span,
-                            span_selection_reason=f"end-of-line: extended span {extended_span:.1f}m (remaining {remaining_distance:.1f}m < MIN_SPAN {self.MIN_SPAN:.1f}m)",
-                        )
-                        towers.append(final_tower)
-                # Stop placement - cannot place more towers
-                break
-            
-            # CRITICAL FIX 1: Enforce minimum span from last tower
-            if towers:
+            # CRITICAL: Enforce MIN_SPAN constraint
+            # Ensure current tower is at least MIN_SPAN away from previous tower
+            if len(towers) > 0:
                 last_tower_distance = towers[-1].distance_along_route_m
-                min_required_distance = last_tower_distance + self.MIN_SPAN
-                if current_distance < min_required_distance:
-                    # Current position violates minimum span, advance to minimum required
-                    current_distance = min_required_distance
-                    # If this exceeds route end, stop placement
+                if current_distance - last_tower_distance < self.MIN_SPAN:
+                    # Force placement at MIN_SPAN from last tower
+                    current_distance = last_tower_distance + self.MIN_SPAN
+                    # If this exceeds route end, we're done
                     if current_distance >= route_end_distance:
+                        logger.info(f"Stopping: current_distance {current_distance:.2f}m >= route_end {route_end_distance:.2f}m")
                         break
             
             # Place tower at current position
             current_elevation = self.interpolate_elevation(current_distance, terrain_profile)
             
-            # Get coordinates if available
-            lat, lon = self._get_coordinates_at_distance(current_distance, terrain_profile, route_start_lat, route_start_lon)
-            
-            tower = TowerPosition(
-                index=tower_index,
-                distance_along_route_m=current_distance,  # CRITICAL FIX 4: Full precision float, no rounding
-                latitude=lat,
-                longitude=lon,
-                elevation_m=current_elevation,
+            # Get coordinates if available (using polyline walker for zigzag routes)
+            lat, lon = self._get_coordinates_at_distance(
+                current_distance, terrain_profile, route_start_lat, route_start_lon, route_coordinates
             )
-            towers.append(tower)
             
-            # Recalculate remaining distance after placing tower
-            remaining_distance = route_end_distance - current_distance
-            
-            # END-OF-LINE HANDLING: If remaining < 2 * min_span, divide equally
-            if remaining_distance < 2.0 * self.min_span_m and remaining_distance >= self.min_span_m:
-                # Divide remainder into 2 equal spans (don't do 450m + 50m, do 250m + 250m)
-                num_remaining_towers = 2
-                equal_span = remaining_distance / num_remaining_towers
-                
-                # Ensure each span is at least min_span
-                if equal_span < self.min_span_m:
-                    # If equal division gives spans < min_span, just place one tower at end
-                    # This handles cases where remaining is between min_span and 2*min_span
-                    final_elevation = self.interpolate_elevation(route_end_distance, terrain_profile)
-                    final_lat, final_lon = self._get_coordinates_at_distance(
-                        route_end_distance, terrain_profile, route_start_lat, route_start_lon
-                    )
-                    final_tower = TowerPosition(
-                        index=tower_index + 1,
-                        distance_along_route_m=route_end_distance,
-                        latitude=final_lat,
-                        longitude=final_lon,
-                        elevation_m=final_elevation,
-                        selected_span_m=remaining_distance,
-                        span_selection_reason=f"end-of-line: single span {remaining_distance:.1f}m (too small to divide)",
-                    )
-                    towers.append(final_tower)
-                    break
-                
-                # Place remaining towers at equal spans
-                last_placed_distance = current_distance
-                for i in range(1, num_remaining_towers + 1):  # +1 to include final tower
-                    next_distance = current_distance + equal_span * i
-                    # Ensure we don't exceed route end
-                    if next_distance >= route_end_distance:
-                        next_distance = route_end_distance
-                    
-                    # CRITICAL FIX 1: Calculate actual span from last placed tower
-                    actual_span = next_distance - last_placed_distance
-                    
-                    # CRITICAL FIX 1: Enforce minimum span - skip if too small
-                    if actual_span < self.MIN_SPAN:
-                        continue
-                    
-                    # CRITICAL FIX 1: Skip if this tower would violate minimum span from last placed tower
-                    if towers and (next_distance - towers[-1].distance_along_route_m) < self.MIN_SPAN:
-                        continue
-                    
-                    next_elevation = self.interpolate_elevation(next_distance, terrain_profile)
-                    next_lat, next_lon = self._get_coordinates_at_distance(
-                        next_distance, terrain_profile, route_start_lat, route_start_lon
-                    )
-                    next_tower = TowerPosition(
-                        index=tower_index + i,
-                        distance_along_route_m=next_distance,  # CRITICAL FIX 4: Full precision float
-                        latitude=next_lat,
-                        longitude=next_lon,
-                        elevation_m=next_elevation,
-                        selected_span_m=actual_span,  # Use actual span, not equal_span
-                        span_selection_reason=f"end-of-line: divided {remaining_distance:.1f}m into {num_remaining_towers} equal spans ({equal_span:.1f}m each)",
-                    )
-                    towers.append(next_tower)
-                    last_placed_distance = next_distance
-                break
-            
-            # Filter span candidates that fit within remaining distance
-            feasible_candidates = [
-                s for s in self.span_candidates 
-                if s <= remaining_distance
-            ]
-            
-            if not feasible_candidates:
-                # No candidate fits, use maximum possible span
-                feasible_candidates = [min(remaining_distance, self.max_span_m)]
-            
-            # Evaluate each span candidate
-            candidates = []
-            for span_candidate in feasible_candidates:
-                next_distance = current_distance + span_candidate
-                candidate = self.evaluate_span_candidate(
-                    span_length_m=span_candidate,
-                    from_tower=tower,
-                    to_distance_m=next_distance,
-                    terrain_profile=terrain_profile,
-                    codal_engine=codal_engine,
-                )
-                candidates.append(candidate)
-            
-            # Select cheapest SAFE span candidate
-            safe_candidates = [c for c in candidates if c.is_safe]
-            
-            if safe_candidates:
-                # Sort by cost (cheapest first)
-                safe_candidates.sort(key=lambda x: x.total_cost)
-                selected = safe_candidates[0]
-                selected_span = selected.span_length_m
-                reason = f"cheapest safe span (${selected.total_cost:.0f})"
-                
-                # If not max span, add reason
-                if selected_span < self.max_span_m:
-                    max_candidate = next((c for c in candidates if c.span_length_m == self.max_span_m), None)
-                    if max_candidate and max_candidate.is_safe:
-                        reason += f" (max span ${max_candidate.total_cost:.0f} was more expensive)"
-                    elif max_candidate and not max_candidate.is_safe:
-                        reason += f" (max span was unsafe)"
+            # Log coordinate retrieval for debugging
+            if lat is None or lon is None:
+                logger.warning(f"Tower {tower_index} at {current_distance:.2f}m: No coordinates retrieved (lat={lat}, lon={lon})")
             else:
-                # No safe candidates, use shortest candidate (will be marked unsafe later)
-                candidates.sort(key=lambda x: x.span_length_m)
-                selected = candidates[0]
-                selected_span = selected.span_length_m
-                reason = f"no safe candidates, using shortest ({selected.span_length_m}m)"
-            
-            # Place next tower at selected span
-            next_distance = current_distance + selected_span
-            
-            # CRITICAL FIX 1: Enforce minimum span constraint
-            min_required_distance = current_distance + self.MIN_SPAN
-            if next_distance < min_required_distance:
-                next_distance = min_required_distance
-            
-            # CRITICAL FIX 3: If remaining distance < MIN_SPAN, do NOT place new tower
-            remaining_after_next = route_end_distance - next_distance
-            if remaining_after_next < self.MIN_SPAN and next_distance < route_end_distance:
-                # Cannot place another tower after this one, place final tower at route end
-                actual_span = route_end_distance - current_distance
-                if actual_span >= self.MIN_SPAN:
-                    # Check if we already have a tower at route end
-                    if not towers or abs(towers[-1].distance_along_route_m - route_end_distance) >= self.MIN_SPAN:
-                        final_elevation = self.interpolate_elevation(route_end_distance, terrain_profile)
-                        final_lat, final_lon = self._get_coordinates_at_distance(
-                            route_end_distance, terrain_profile, route_start_lat, route_start_lon
-                        )
-                        final_tower = TowerPosition(
-                            index=tower_index + 1,
-                            distance_along_route_m=route_end_distance,  # CRITICAL FIX 4: Full precision
-                            latitude=final_lat,
-                            longitude=final_lon,
-                            elevation_m=final_elevation,
-                            selected_span_m=actual_span,
-                            span_selection_reason=f"end-of-line: final span {actual_span:.1f}m (remaining {remaining_after_next:.1f}m < MIN_SPAN)",
-                        )
-                        towers.append(final_tower)
-                break
-            
-            # CRITICAL: Ensure we don't exceed route end
-            if next_distance >= route_end_distance:
-                # Place final tower at route end (only if span is valid and not duplicate)
-                actual_span = route_end_distance - current_distance
-                if actual_span >= self.MIN_SPAN and current_distance < route_end_distance:
-                    # Check if we already have a tower at this location (strict check)
-                    if not towers or (route_end_distance - towers[-1].distance_along_route_m) >= self.MIN_SPAN:
-                        final_elevation = self.interpolate_elevation(route_end_distance, terrain_profile)
-                        final_lat, final_lon = self._get_coordinates_at_distance(
-                            route_end_distance, terrain_profile, route_start_lat, route_start_lon
-                        )
-                        final_tower = TowerPosition(
-                            index=tower_index + 1,
-                            distance_along_route_m=route_end_distance,  # CRITICAL FIX 4: Full precision
-                            latitude=final_lat,
-                            longitude=final_lon,
-                            elevation_m=final_elevation,
-                            selected_span_m=actual_span,
-                            span_selection_reason=f"end-of-line: final span {actual_span:.1f}m",
-                        )
-                        towers.append(final_tower)
-                break
-            
-            # CRITICAL FIX 1: Ensure span meets minimum requirement
-            actual_span_length = next_distance - current_distance
-            if actual_span_length < self.MIN_SPAN:
-                # Span too short, cannot place tower here
-                break
-            
-            # CRITICAL FIX 1: Prevent duplicate towers (strict check using MIN_SPAN)
-            if towers and (next_distance - towers[-1].distance_along_route_m) < self.MIN_SPAN:
-                # Next tower would violate minimum span, stop here
-                break
-            
-            next_elevation = self.interpolate_elevation(next_distance, terrain_profile)
-            next_lat, next_lon = self._get_coordinates_at_distance(
-                next_distance, terrain_profile, route_start_lat, route_start_lon
-            )
-            next_tower = TowerPosition(
-                index=tower_index + 1,
-                distance_along_route_m=next_distance,
-                latitude=next_lat,
-                longitude=next_lon,
-                elevation_m=next_elevation,
-                selected_span_m=selected_span,
-                span_selection_reason=reason,
-            )
-            towers.append(next_tower)
-            
-            # Move to next tower
-            current_distance = next_distance
-            tower_index += 1
-            
-            # Safety check: If we've reached the end, we're done
-            if current_distance >= route_end_distance:
-                break
-        
-        # CRITICAL FIX 5: Invariant assertion - validate strict monotonic ordering
-        self._validate_tower_sequencing(towers)
-        
-        return towers
-    
-    def _validate_tower_sequencing(self, towers: List[TowerPosition]) -> None:
-        """
-        Validate that towers are in strict monotonic order.
-        
-        Raises ValueError if any violation is detected.
-        """
-        if len(towers) < 2:
-            return  # No sequencing to validate
-        
-        for i in range(len(towers) - 1):
-            current_x = towers[i].distance_along_route_m
-            next_x = towers[i + 1].distance_along_route_m
-            span = next_x - current_x
-            
-            if next_x <= current_x:
-                raise ValueError(
-                    f"TOWER SEQUENCING VIOLATION: Tower {i} at {current_x:.2f}m must be before "
-                    f"Tower {i+1} at {next_x:.2f}m. Towers must be in strict monotonic order."
-                )
-            
-            if span < self.MIN_SPAN:
-                raise ValueError(
-                    f"MINIMUM SPAN VIOLATION: Span from Tower {i} ({current_x:.2f}m) to "
-                    f"Tower {i+1} ({next_x:.2f}m) is {span:.2f}m, which is below minimum "
-                    f"required {self.MIN_SPAN:.2f}m."
-                )
-    
-    def _place_towers_simple(
-        self,
-        terrain_profile: List[TerrainPoint],
-        route_start_lat: Optional[float] = None,
-        route_start_lon: Optional[float] = None,
-    ) -> List[TowerPosition]:
-        """
-        Simple tower placement (backward compatibility fallback).
-        
-        Uses fixed max span approach when codal_engine is not available.
-        """
-        if not terrain_profile:
-            return []
-        
-        towers: List[TowerPosition] = []
-        current_distance = 0.0
-        tower_index = 0
-        route_end_distance = terrain_profile[-1].distance_m if terrain_profile else 0.0
-        
-        while current_distance < route_end_distance:
-            current_elevation = self.interpolate_elevation(current_distance, terrain_profile)
-            lat, lon = self._get_coordinates_at_distance(current_distance, terrain_profile, route_start_lat, route_start_lon)
+                logger.info(f"Tower {tower_index} at {current_distance:.2f}m: coordinates=({lat:.6f}, {lon:.6f})")
             
             tower = TowerPosition(
                 index=tower_index,
@@ -719,28 +302,43 @@ class AutoSpotter:
                 elevation_m=current_elevation,
             )
             towers.append(tower)
+            logger.info(f"Placed tower {tower_index} at distance {current_distance:.2f}m (lat={lat}, lon={lon})")
             
+            # Try to place next tower at max span (along actual polyline)
             next_distance = current_distance + self.max_span_m
+            logger.info(f"Attempting next tower at distance {next_distance:.2f}m (route_end={route_end_distance:.2f}m)")
+            
+            # If beyond route end, check if we need final tower
             if next_distance >= route_end_distance:
-                final_elevation = self.interpolate_elevation(route_end_distance, terrain_profile)
-                final_lat, final_lon = self._get_coordinates_at_distance(
-                    route_end_distance, terrain_profile, route_start_lat, route_start_lon
-                )
-                final_tower = TowerPosition(
-                    index=tower_index + 1,
-                    distance_along_route_m=route_end_distance,
-                    latitude=final_lat,
-                    longitude=final_lon,
-                    elevation_m=final_elevation,
-                    selected_span_m=self.max_span_m,
-                    span_selection_reason="simple placement (no codal_engine)",
-                )
-                towers.append(final_tower)
+                # Check if remaining distance is sufficient for a new tower
+                remaining_distance = route_end_distance - current_distance
+                
+                # CRITICAL: Only place final tower if there's meaningful distance remaining
+                # Check if the last tower we placed is NOT already at the route end
+                last_tower_at_end = len(towers) > 0 and towers[-1].distance_along_route_m >= route_end_distance - 0.1
+                
+                if remaining_distance >= self.MIN_SPAN and not last_tower_at_end:
+                    # Place final tower at route end (only if we haven't placed it yet)
+                    final_elevation = self.interpolate_elevation(route_end_distance, terrain_profile)
+                    final_lat, final_lon = self._get_coordinates_at_distance(
+                        route_end_distance, terrain_profile, route_start_lat, route_start_lon, route_coordinates
+                    )
+                    final_tower = TowerPosition(
+                        index=tower_index + 1,
+                        distance_along_route_m=route_end_distance,
+                        latitude=final_lat,
+                        longitude=final_lon,
+                        elevation_m=final_elevation,
+                    )
+                    towers.append(final_tower)
+                    logger.info(f"Placed final tower at route end: {route_end_distance:.2f}m")
+                # Otherwise, extend previous span (don't place new tower)
                 break
             
+            # Check clearance for this span
             next_elevation = self.interpolate_elevation(next_distance, terrain_profile)
             next_lat, next_lon = self._get_coordinates_at_distance(
-                next_distance, terrain_profile, route_start_lat, route_start_lon
+                next_distance, terrain_profile, route_start_lat, route_start_lon, route_coordinates
             )
             next_tower = TowerPosition(
                 index=tower_index + 1,
@@ -753,43 +351,105 @@ class AutoSpotter:
             is_safe, clearance, violation = self.check_clearance(tower, next_tower, terrain_profile)
             
             if is_safe:
-                # CRITICAL FIX 1: Ensure minimum span from last tower
-                if towers and (next_distance - towers[-1].distance_along_route_m) < self.MIN_SPAN:
-                    # Cannot place tower here - violates minimum span
-                    break
-                current_distance = next_distance  # CRITICAL FIX 4: Full precision
+                # Safe span, move to next tower
+                # CRITICAL: Ensure MIN_SPAN constraint
+                if next_distance - current_distance < self.MIN_SPAN:
+                    # Force minimum span
+                    next_distance = current_distance + self.MIN_SPAN
+                    if next_distance >= route_end_distance:
+                        break
+                
+                current_distance = next_distance
                 tower_index += 1
             else:
-                # CRITICAL FIX 2: Step back collision logic with minimum span enforcement
-                candidate_x = next_distance - self.step_back_m
-                last_tower_x = tower.distance_along_route_m
-                min_required_x = last_tower_x + self.MIN_SPAN
+                # Collision detected, step back
+                current_distance = next_distance - self.step_back_m
                 
-                # BEFORE accepting step-back, check monotonic constraint
-                if candidate_x <= min_required_x:
-                    # Step-back would violate minimum span
-                    # Accept previous safe position OR force placement at minimum span
-                    if candidate_x < min_required_x:
-                        # Force placement at minimum span (if within route bounds)
-                        if min_required_x < route_end_distance:
-                            current_distance = min_required_x
-                            tower_index += 1
-                        else:
-                            # Cannot place tower - route too short
-                            break
-                    else:
-                        # Exactly at minimum - accept it
-                        current_distance = candidate_x
-                        tower_index += 1
-                else:
-                    # Step-back is valid - accept it
-                    current_distance = candidate_x
+                # CRITICAL: Ensure we don't go below MIN_SPAN
+                if current_distance - tower.distance_along_route_m < self.MIN_SPAN:
+                    # Can't step back further, place tower at MIN_SPAN
+                    current_distance = tower.distance_along_route_m + self.MIN_SPAN
+                    if current_distance >= route_end_distance:
+                        # Can't place tower, extend previous span instead
+                        break
                     tower_index += 1
+                else:
+                    # Continue trying
+                    continue
         
-        # CRITICAL FIX 5: Invariant assertion - validate strict monotonic ordering
+        # CRITICAL: Validate tower sequencing (strict monotonic ordering)
         self._validate_tower_sequencing(towers)
         
         return towers
+    
+    def _calculate_polyline_total_distance(self, route_coordinates: List[Dict[str, Any]]) -> float:
+        """
+        Calculate total distance along polyline route.
+        
+        CRITICAL: Always calculates from lat/lon using Haversine formula.
+        IGNORES distance_m attribute completely (it may be corrupted/incorrect).
+        
+        Args:
+            route_coordinates: List of route points with lat/lon
+            
+        Returns:
+            Total distance in meters along the polyline (calculated from coordinates)
+        """
+        import math
+        
+        if not route_coordinates or len(route_coordinates) < 2:
+            return 0.0
+        
+        total_distance = 0.0
+        for i in range(len(route_coordinates) - 1):
+            p1 = route_coordinates[i]
+            p2 = route_coordinates[i + 1]
+            
+            lat1 = p1.get('lat')
+            lon1 = p1.get('lon')
+            lat2 = p2.get('lat')
+            lon2 = p2.get('lon')
+            
+            if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
+                continue
+            
+            # Calculate segment length using Haversine formula
+            # This gives the actual physical distance between coordinates
+            dlat = math.radians(lat2 - lat1)
+            dlon = math.radians(lon2 - lon1)
+            a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+            c = 2 * math.asin(math.sqrt(a))
+            segment_length = 6371000.0 * c  # Earth radius in meters
+            total_distance += segment_length
+        
+        return total_distance
+    
+    def _validate_tower_sequencing(self, towers: List[TowerPosition]) -> None:
+        """
+        Validate that towers are in strict monotonic order with minimum span.
+        
+        Raises ValueError if validation fails.
+        """
+        if len(towers) < 2:
+            return
+        
+        for i in range(len(towers) - 1):
+            current = towers[i]
+            next_tower = towers[i + 1]
+            
+            span = next_tower.distance_along_route_m - current.distance_along_route_m
+            
+            if span <= 0:
+                raise ValueError(
+                    f"Tower sequencing violation: Tower {i} at {current.distance_along_route_m:.2f}m "
+                    f"must be before Tower {i+1} at {next_tower.distance_along_route_m:.2f}m"
+                )
+            
+            if span < self.MIN_SPAN:
+                raise ValueError(
+                    f"Minimum span violation: Span between Tower {i} and {i+1} is {span:.2f}m, "
+                    f"which is less than MIN_SPAN {self.MIN_SPAN:.2f}m"
+                )
     
     def _get_coordinates_at_distance(
         self,
@@ -797,20 +457,43 @@ class AutoSpotter:
         terrain_profile: List[TerrainPoint],
         route_start_lat: Optional[float],
         route_start_lon: Optional[float],
+        route_coordinates: Optional[List[Dict[str, Any]]] = None,
     ) -> Tuple[Optional[float], Optional[float]]:
         """
-        Get coordinates at given distance along route.
+        Get coordinates at given distance along route using polyline walker.
+        
+        CRITICAL: This follows the actual zigzag route path, not a straight line.
+        Uses polyline walker algorithm to ensure coordinates land on the actual route segments.
         
         Args:
-            distance_m: Distance from route start
+            distance_m: Distance from route start (along actual route path)
             terrain_profile: Terrain profile (may contain lat/lon)
-            route_start_lat: Starting latitude
-            route_start_lon: Starting longitude
+            route_start_lat: Starting latitude (fallback)
+            route_start_lon: Starting longitude (fallback)
+            route_coordinates: List of route points with lat/lon/distance_m (preferred)
             
         Returns:
             Tuple of (latitude, longitude) or (None, None) if not available
         """
-        # If terrain profile has coordinates, interpolate
+        # CRITICAL FIX: Use polyline walker on route_coordinates if available
+        # This ensures coordinates follow the actual zigzag path, not a straight line
+        if route_coordinates and len(route_coordinates) >= 2:
+            # Polyline walker will calculate distances from coordinates
+            pass
+            
+            lat, lon = _polyline_walker_get_coordinates(route_coordinates, distance_m)
+            import logging
+            logger = logging.getLogger(__name__)
+            if lat is not None and lon is not None:
+                logger.info(f"Polyline walker: distance={distance_m:.2f}m -> ({lat:.6f}, {lon:.6f})")
+                return lat, lon
+            else:
+                logger.warning(f"Polyline walker returned None for distance={distance_m:.2f}m")
+                # DO NOT fall back - this is a critical error that must be fixed
+                return None, None
+        
+        # Fallback: If terrain profile has coordinates, interpolate
+        # This is more accurate when route_coordinates are sparse waypoints
         for i in range(len(terrain_profile) - 1):
             p1 = terrain_profile[i]
             p2 = terrain_profile[i + 1]
@@ -822,10 +505,125 @@ class AutoSpotter:
                     t = (distance_m - p1.distance_m) / (p2.distance_m - p1.distance_m)
                     lat = p1.latitude + t * (p2.latitude - p1.latitude)
                     lon = p1.longitude + t * (p2.longitude - p1.longitude)
+                    logger.info(f"Terrain profile interpolation: distance={distance_m:.2f}m -> ({lat:.6f}, {lon:.6f})")
                     return lat, lon
         
-        # If no coordinates in profile, return None
+        # If no coordinates available, return None
+        logger.warning(f"No coordinates available for distance={distance_m:.2f}m")
         return None, None
+
+
+def _polyline_walker_get_coordinates(
+    route_coordinates: List[Dict[str, Any]],
+    target_distance_m: float,
+) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Polyline Walker Algorithm: Get coordinates at target distance along zigzag route.
+    
+    This function walks along the actual route segments (polyline), accumulating distance,
+    and interpolates coordinates only when the target distance falls within a segment.
+    
+    This ensures that if a tower is placed at 500m on a zigzag route, the coordinates
+    will land on the actual zigzag path, not on a straight line shortcut.
+    
+    Args:
+        route_coordinates: List of route points, each with:
+            - 'lat': latitude
+            - 'lon': longitude
+            - 'distance_m': cumulative distance from start (optional, will be calculated if missing)
+        target_distance_m: Target distance along route (meters)
+        
+    Returns:
+        Tuple of (latitude, longitude) or (None, None) if route is empty or invalid
+    """
+    import math
+    
+    if not route_coordinates or len(route_coordinates) < 2:
+        return None, None
+    
+    # CRITICAL FIX: Always calculate cumulative distances from lat/lon using Haversine
+    # IGNORE distance_m attribute completely - it may be corrupted/incorrect
+    # This ensures we use the physical reality of coordinates, not corrupted metadata
+    cumulative_distance = 0.0
+    route_points = []
+    
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Polyline walker: Processing {len(route_coordinates)} route coordinates for target_distance={target_distance_m:.2f}m")
+    
+    for i, coord in enumerate(route_coordinates):
+        lat = coord.get('lat')
+        lon = coord.get('lon')
+        
+        # Skip if missing coordinates
+        if lat is None or lon is None:
+            logger.warning(f"Polyline walker: Skipping coord {i} - missing lat/lon")
+            continue
+        
+        # CRITICAL: Always calculate cumulative distance from lat/lon using Haversine
+        # Start at 0.0 for first point
+        if i == 0:
+            cumulative_distance = 0.0
+        else:
+            # Calculate segment length from previous point to current point
+            prev_lat = route_points[-1]['lat']
+            prev_lon = route_points[-1]['lon']
+            
+            # Haversine formula to calculate actual physical distance
+            dlat = math.radians(lat - prev_lat)
+            dlon = math.radians(lon - prev_lon)
+            a = math.sin(dlat/2)**2 + math.cos(math.radians(prev_lat)) * math.cos(math.radians(lat)) * math.sin(dlon/2)**2
+            c = 2 * math.asin(math.sqrt(a))
+            segment_length = 6371000.0 * c  # Earth radius in meters
+            cumulative_distance += segment_length
+        
+        route_points.append({
+            'lat': lat,
+            'lon': lon,
+            'distance_m': cumulative_distance  # Store calculated cumulative distance
+        })
+    
+    logger.info(f"Polyline walker: Processed {len(route_points)} points, total distance={cumulative_distance:.2f}m, target={target_distance_m:.2f}m")
+    
+    if len(route_points) < 2:
+        logger.warning(f"Polyline walker: Only {len(route_points)} valid points, need at least 2")
+        return None, None
+    
+    # Handle edge cases
+    if target_distance_m <= 0.0:
+        return route_points[0]['lat'], route_points[0]['lon']
+    
+    if target_distance_m >= route_points[-1]['distance_m']:
+        return route_points[-1]['lat'], route_points[-1]['lon']
+    
+    # Walk along polyline segments
+    accumulated_distance = 0.0
+    
+    for i in range(len(route_points) - 1):
+        p1 = route_points[i]
+        p2 = route_points[i + 1]
+        
+        # Calculate segment length
+        segment_length = p2['distance_m'] - p1['distance_m']
+        
+        # Check if target distance falls within this segment
+        if p1['distance_m'] <= target_distance_m <= p2['distance_m']:
+            # Interpolate coordinates within this segment
+            if segment_length == 0.0:
+                # Duplicate point, return coordinates as-is
+                return p1['lat'], p1['lon']
+            
+            # Calculate interpolation factor (0.0 to 1.0)
+            t = (target_distance_m - p1['distance_m']) / segment_length
+            
+            # Linear interpolation of coordinates
+            lat = p1['lat'] + t * (p2['lat'] - p1['lat'])
+            lon = p1['lon'] + t * (p2['lon'] - p1['lon'])
+            
+            return lat, lon
+    
+    # Should never reach here, but return last point as fallback
+    return route_points[-1]['lat'], route_points[-1]['lon']
 
 
 def create_terrain_profile_from_coordinates(

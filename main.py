@@ -30,36 +30,8 @@ from regional_risk_registry import get_regional_risks, format_regional_risks
 from dominant_risk_advisory import generate_risk_advisories, format_risk_advisories
 from intelligence.intelligence_manager import IntelligenceManager
 
-# Import service for shared logic (CLI still works independently)
-try:
-    from backend.services.optimizer_service import run_optimization as run_optimization_service
-    SERVICE_AVAILABLE = True
-except ImportError:
-    SERVICE_AVAILABLE = False
-
-
-def create_codal_engine(standard: DesignStandard):
-    """
-    Create appropriate codal engine instance.
-    
-    Args:
-        standard: DesignStandard enum
-        
-    Returns:
-        CodalEngine instance
-    """
-    engines = {
-        DesignStandard.IS: ISEngine,
-        DesignStandard.IEC: IECEngine,
-        DesignStandard.EUROCODE: EurocodeEngine,
-        DesignStandard.ASCE: ASCEEngine,
-    }
-    
-    engine_class = engines.get(standard)
-    if engine_class is None:
-        raise ValueError(f"Unsupported design standard: {standard}")
-    
-    return engine_class()
+# Import shared logic from optimizer_service
+from backend.services.optimizer_service import create_codal_engine
 
 
 def parse_terrain_type(terrain_str: str) -> TerrainType:

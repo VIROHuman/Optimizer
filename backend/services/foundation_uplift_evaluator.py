@@ -190,3 +190,4 @@ def _calculate_required_depth(
     # If iteration limit reached, return maximum
     return min(current_depth, 6.0)
 
+

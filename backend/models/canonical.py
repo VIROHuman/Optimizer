@@ -11,11 +11,11 @@ No deviations, no shortcuts, no frontend-only calculations.
 """
 
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from enum import Enum
 
-# Import GeographicResolutionResponse directly to avoid forward reference issues
-from backend.models.geo_context import GeographicResolutionResponse
+if TYPE_CHECKING:
+    from backend.models.geo_context import GeographicResolutionResponse
 
 
 class TowerSafetyStatus(str, Enum):
@@ -36,11 +36,9 @@ class TowerResponse(BaseModel):
     body_extension_m: float = Field(..., description="Body extension height")
     total_height_m: float = Field(..., description="Total tower height")
     base_width_m: float = Field(..., description="Tower base width at ground level (meters)")
-    design_reason: Optional[str] = Field(None, description="Why this tower type/placement was selected")
     leg_extensions_m: Optional[Dict[str, float]] = Field(None, description="Per-leg extensions if applicable")
     foundation_type: str = Field(..., description="pad_footing / chimney_footing")
     foundation_dimensions: Dict[str, float] = Field(..., description="length, width, depth in meters")
-    governing_uplift_case: Optional[str] = Field(None, description="Governing uplift case if foundation is uplift-governed")
     steel_weight_kg: float = Field(..., description="Steel weight in kg")
     steel_cost: float = Field(..., description="Steel cost")
     foundation_cost: float = Field(..., description="Foundation cost")
@@ -50,6 +48,7 @@ class TowerResponse(BaseModel):
     total_cost: float = Field(..., description="Total cost for this tower")
     safety_status: TowerSafetyStatus = Field(..., description="SAFE or GOVERNING")
     governing_load_case: Optional[str] = Field(None, description="Governing load case if GOVERNING")
+    design_reason: Optional[str] = Field(None, description="Explanation for tower type selection (e.g., 'Angle tower required for 12° route deviation')")
 
 
 class SpanResponse(BaseModel):
@@ -81,8 +80,6 @@ class LineSummaryResponse(BaseModel):
     total_project_cost: float = Field(..., description="Total project cost")
     cost_per_km: float = Field(..., description="Cost per kilometer")
     estimated_towers_for_project_length: Optional[int] = Field(None, description="Estimated towers if project_length_km provided")
-    wind_source: Optional[str] = Field(None, description="Source of wind data (e.g., 'map-derived', 'user-selected')")
-    terrain_source: Optional[str] = Field(None, description="Source of terrain data (e.g., 'elevation-derived', 'user-selected')")
 
 
 class CostBreakdownResponse(BaseModel):
@@ -92,6 +89,7 @@ class CostBreakdownResponse(BaseModel):
     erection_total: float = Field(..., description="Total erection cost")
     transport_total: float = Field(..., description="Total transport cost")
     land_ROW_total: float = Field(..., description="Total land/ROW cost")
+    total_project_cost: float = Field(..., description="Total project cost (sum of all components)")
     currency: str = Field(..., description="USD or INR")
     currency_symbol: str = Field(..., description="$ or ₹")
 
@@ -101,8 +99,6 @@ class SafetySummaryResponse(BaseModel):
     overall_status: str = Field(..., description="SAFE (always SAFE for final designs)")
     governing_risks: List[str] = Field(default_factory=list, description="List of governing risk factors")
     design_scenarios_applied: List[str] = Field(default_factory=list, description="Design scenarios enabled")
-    broken_wire_case: Optional[str] = Field(None, description="Broken wire case status: PASS / GOVERNING / NOT_EVALUATED")
-    foundation_uplift_governed: bool = Field(False, description="Whether foundation is governed by uplift")
 
 
 class ConfidenceResponse(BaseModel):
@@ -133,8 +129,6 @@ class CostContextResponse(BaseModel):
     cost_per_km: float = Field(..., description="Cost per kilometer")
     primary_cost_drivers: List[str] = Field(default_factory=list, description="List of primary cost drivers")
     interpretation: str = Field(..., description="Plain-language interpretation of cost")
-    foundation_uncertainty_note: Optional[str] = Field(None, description="Note about foundation classification uncertainty")
-    terrain_contribution_note: Optional[str] = Field(None, description="Note about terrain contribution to cost variance")
 
 
 class CurrencyContextResponse(BaseModel):

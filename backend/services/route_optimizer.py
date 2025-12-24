@@ -2,15 +2,6 @@
 Route-Level Optimization Service.
 
 Orchestrates auto-spotter + per-tower optimizer + canonical aggregation.
-
-SYSTEM POSITIONING:
-This system operates upstream of detailed design tools.
-It narrows corridors, budgets risk, and guides engineering effort.
-
-This tool is NOT a member-level structural design engine and must NOT
-attempt to compete with PLS-CADD.
-
-Target accuracy: ±25-30% for feasibility/DPR-stage estimates.
 """
 
 from typing import List, Dict, Any, Optional
@@ -23,8 +14,8 @@ from backend.models.canonical import (
     LineSummaryResponse, CostBreakdownResponse, SafetySummaryResponse,
     RegionalContextResponse, TowerSafetyStatus
 )
-from backend.models.geo_context import GeoContext
 from backend.services.currency_resolver import resolve_currency
+from backend.services.tower_type_classifier import classify_all_towers
 import logging
 
 logger = logging.getLogger(__name__)
@@ -95,10 +86,7 @@ def optimize_route(
         # Create terrain profile from coordinates (fallback)
         terrain_profile_parsed = create_terrain_profile_from_coordinates(route_coordinates)
     
-    # Step 1: Create codal engine (needed for span optimization)
-    codal_engine = create_codal_engine(inputs.governing_standard)
-    
-    # Step 2: Auto-spotter places towers with adaptive span optimization
+    # Step 1: Auto-spotter places towers
     spotter = AutoSpotter(
         inputs=inputs,
         max_span_m=inputs.span_max,
@@ -109,54 +97,25 @@ def optimize_route(
         terrain_profile=terrain_profile_parsed,
         route_start_lat=route_coordinates[0].get("lat") if route_coordinates else None,
         route_start_lon=route_coordinates[0].get("lon") if route_coordinates else None,
-        codal_engine=codal_engine,  # Pass codal_engine for span optimization
+        route_coordinates=route_coordinates,  # CRITICAL: Pass route_coordinates for polyline walker
     )
     
     logger.info(f"Auto-spotter placed {len(tower_positions)} towers along route")
     
-    # SPAN REBALANCING: Rebalance tower positions for uniform spacing
-    from backend.services.span_rebalancer import rebalance_spans
-    rebalanced_towers, span_strategy, balanced_span_m = rebalance_spans(
-        initial_towers=tower_positions,
-        terrain_profile=terrain_profile_parsed,
-        inputs=inputs,
-        spotter=spotter,
-        route_start_lat=route_coordinates[0].get("lat") if route_coordinates else None,
-        route_start_lon=route_coordinates[0].get("lon") if route_coordinates else None,
-    )
+    # Step 1.5: Classify all towers based on geometry (automatic, no user selection)
+    tower_classifications = classify_all_towers(tower_positions, inputs)
+    logger.info(f"Classified {len(tower_classifications)} towers based on route geometry")
     
-    if span_strategy == "balanced":
-        logger.info(f"Span rebalancing successful: {len(rebalanced_towers)} towers with uniform span {balanced_span_m:.2f}m")
-        tower_positions = rebalanced_towers
-    else:
-        logger.info("Span rebalancing rejected due to clearance violations, using original auto-spotter placement")
-    
-    # UPGRADE 1: Classify tower types based on route geometry (geodetic) and voltage
-    from backend.services.tower_type_classifier import classify_all_towers
-    tower_classifications = classify_all_towers(tower_positions, inputs.voltage_level)
-    logger.info(f"Classified {len(tower_classifications)} towers based on route geometry and voltage")
-    
-    # Step 3: Optimize each tower (tower design optimization, not span selection)
+    # Step 2: Optimize each tower
+    codal_engine = create_codal_engine(inputs.governing_standard)
     optimized_towers = []
     optimized_spans = []
     
-    # CRITICAL: Validate tower positions before optimization
-    if len(tower_positions) < 2:
-        raise ValueError(f"Route optimization requires at least 2 towers, got {len(tower_positions)}")
-    
-    # Ensure towers are in sequential order
-    for i in range(len(tower_positions) - 1):
-        if tower_positions[i].distance_along_route_m >= tower_positions[i + 1].distance_along_route_m:
-            raise ValueError(
-                f"Tower positions must be sequential: Tower {i} at {tower_positions[i].distance_along_route_m:.2f}m "
-                f"must be before Tower {i+1} at {tower_positions[i+1].distance_along_route_m:.2f}m"
-            )
-    
     for i, tower_pos in enumerate(tower_positions):
-        # UPGRADE 1: Get geometry-derived tower type for this tower
-        geometry_tower_type, _, _, _ = tower_classifications[i]
+        # Get classified tower type (geometry-driven, not user-selected)
+        geometry_tower_type, deviation_angle_deg, classification_reason = tower_classifications[i]
         
-        # Create optimizer for this tower (use geometry-derived type)
+        # Create optimizer for this tower
         optimizer = PSOOptimizer(
             codal_engine=codal_engine,
             inputs=inputs,
@@ -164,166 +123,8 @@ def optimize_route(
             max_iterations=100,
         )
         
-        # Optimize tower design with geometry-derived tower type
+        # Optimize tower design using classified type
         result = optimizer.optimize(tower_type=geometry_tower_type)
-        
-        # UPGRADE 2: Evaluate broken-wire case if enabled
-        broken_wire_safe = True
-        broken_wire_violation = None
-        broken_wire_uplift_kn = None
-        corrected_design = result.best_design
-        
-        if inputs.include_broken_wire:
-            from backend.services.broken_wire_evaluator import evaluate_broken_wire_case, apply_broken_wire_corrections
-            broken_wire_safe, broken_wire_violation, corrections = evaluate_broken_wire_case(
-                result.best_design, inputs, codal_engine
-            )
-            
-            if not broken_wire_safe and corrections:
-                # Auto-correct design
-                corrected_design = apply_broken_wire_corrections(result.best_design, corrections)
-                # Re-evaluate to confirm correction
-                broken_wire_safe, _, _ = evaluate_broken_wire_case(corrected_design, inputs, codal_engine)
-                # Extract uplift force for foundation evaluation
-                broken_wire_uplift_kn = corrections.get('foundation_uplift_kn', None)
-        
-        # UPGRADE 3: Evaluate foundation uplift
-        from backend.services.foundation_uplift_evaluator import evaluate_foundation_uplift
-        foundation_safe, total_uplift_kn, governing_uplift_case, required_depth = evaluate_foundation_uplift(
-            corrected_design, inputs, broken_wire_uplift_kn
-        )
-        
-        # Apply foundation depth correction if needed
-        if not foundation_safe and required_depth > corrected_design.footing_depth:
-            from data_models import TowerDesign
-            corrected_design = TowerDesign(
-                tower_type=corrected_design.tower_type,
-                tower_height=corrected_design.tower_height,
-                base_width=corrected_design.base_width,
-                span_length=corrected_design.span_length,
-                foundation_type=corrected_design.foundation_type,
-                footing_length=corrected_design.footing_length,
-                footing_width=corrected_design.footing_width,
-                footing_depth=required_depth,
-            )
-        
-        # Update result with corrected design
-        if corrected_design != result.best_design:
-            # Recalculate cost for corrected design
-            from cost_engine import calculate_cost_with_breakdown
-            corrected_cost, corrected_cost_breakdown = calculate_cost_with_breakdown(corrected_design, inputs)
-            # Update result (create new result object with corrected design)
-            from data_models import OptimizationResult
-            result = OptimizationResult(
-                best_design=corrected_design,
-                best_cost=corrected_cost,
-                is_safe=result.is_safe and broken_wire_safe and foundation_safe,
-                safety_violations=result.safety_violations + ([broken_wire_violation] if broken_wire_violation else []),
-                governing_standard=result.governing_standard,
-                iterations=result.iterations,
-                convergence_info=result.convergence_info,
-            )
-        
-        # UPGRADE 1: Get geometry-derived tower type, deviation angle, and reason
-        geometry_tower_type, deviation_angle_deg, classification_reason, distance_since_last_dead_end = tower_classifications[i]
-        
-        # Get foundation uplift case (from evaluation above)
-        foundation_uplift_case = governing_uplift_case if not foundation_safe else None
-        
-        # CRITICAL: Enforce base width constraint on final design
-        # This ensures the constraint is ALWAYS applied, even if it was bypassed during optimization
-        from pso_optimizer import get_base_width_ratio_for_tower_type, MIN_BASE_WIDTH_RATIO, REGIONAL_MIN_BASE_WIDTH
-        from data_models import TowerDesign
-        
-        final_design = result.best_design
-        voltage = inputs.voltage_level
-        regional_min = 5.0
-        for v_level, min_base in sorted(REGIONAL_MIN_BASE_WIDTH.items()):
-            if voltage >= v_level:
-                regional_min = min_base
-        
-        tower_type_ratio = get_base_width_ratio_for_tower_type(final_design.tower_type)
-        ratio_based_min = final_design.tower_height * MIN_BASE_WIDTH_RATIO
-        base_width_ratio_min = final_design.tower_height * tower_type_ratio
-        base_width_min = max(ratio_based_min, regional_min, base_width_ratio_min)
-        
-        if final_design.base_width < base_width_min:
-            # Constraint violated - correct it
-            logger.warning(
-                f"Base width constraint violation detected for tower {i}: "
-                f"base_width={final_design.base_width:.2f}m < min={base_width_min:.2f}m "
-                f"(height={final_design.tower_height:.2f}m, type={final_design.tower_type.value}, "
-                f"voltage={voltage}kV, regional_min={regional_min}m, ratio={tower_type_ratio}). "
-                f"Correcting to {base_width_min:.2f}m."
-            )
-            final_design = TowerDesign(
-                tower_type=final_design.tower_type,
-                tower_height=final_design.tower_height,
-                base_width=base_width_min,  # Enforce constraint
-                span_length=final_design.span_length,
-                foundation_type=final_design.foundation_type,
-                footing_length=final_design.footing_length,
-                footing_width=final_design.footing_width,
-                footing_depth=final_design.footing_depth,
-            )
-            # Update result with corrected design
-            from cost_engine import calculate_cost_with_breakdown
-            corrected_cost, _ = calculate_cost_with_breakdown(final_design, inputs)
-            from data_models import OptimizationResult
-            result = OptimizationResult(
-                best_design=final_design,
-                best_cost=corrected_cost,
-                is_safe=result.is_safe,
-                safety_violations=result.safety_violations,
-                governing_standard=result.governing_standard,
-                iterations=result.iterations,
-                convergence_info=result.convergence_info,
-            )
-        
-        # Recalculate cost with final corrected design
-        from cost_engine import calculate_cost_with_breakdown
-        _, cost_breakdown_final = calculate_cost_with_breakdown(result.best_design, inputs)
-        
-        # Add transport_cost to breakdown if not present (calculated as 20% of erection_cost)
-        if 'transport_cost' not in cost_breakdown_final:
-            cost_breakdown_final['transport_cost'] = cost_breakdown_final.get('erection_cost', 0.0) * 0.2
-
-        # Apply planning-level scaling for angle/dead-end towers (physics & cost scaling)
-        def _apply_tower_scaling(costs: dict, tower_type: TowerType, deviation: Optional[float], voltage_kv: float) -> dict:
-            scaled = costs.copy()
-            dev = deviation or 0.0
-            if tower_type == TowerType.ANGLE:
-                # Angle towers: Base Weight * 1.5 (Intermediate between Suspension and Dead-End)
-                # This ensures Angle towers are heavier than Suspension but lighter than Dead-End
-                steel_mult = 1.5
-                foundation_mult = 1.3  # Slightly higher foundation cost for angle towers
-                scaled['steel_cost'] *= steel_mult
-                scaled['foundation_cost'] *= foundation_mult
-            elif tower_type == TowerType.DEAD_END:
-                # Voltage-aware scaling bands
-                if voltage_kv >= 765:
-                    steel_mult = 2.2 + 0.6 * min(max(dev / 20.0, 0.0), 1.0)  # 2.2 – 2.8
-                elif voltage_kv >= 400:
-                    steel_mult = 1.8 + 0.5 * min(max(dev / 30.0, 0.0), 1.0)  # 1.8 – 2.3
-                else:
-                    steel_mult = 1.6 + 0.4 * min(max(dev / 35.0, 0.0), 1.0)  # 1.6 – 2.0
-                foundation_mult = 1.4 + 0.3 * min(max(dev / 35.0, 0.0), 1.0)  # 1.4 – 1.7
-                scaled['steel_cost'] *= steel_mult
-                scaled['foundation_cost'] *= foundation_mult
-            # Recompute total cost and derived components (transport remains proportional to erection)
-            # Ensure transport_cost exists (it's calculated as 20% of erection_cost)
-            if 'transport_cost' not in scaled:
-                scaled['transport_cost'] = scaled.get('erection_cost', 0.0) * 0.2
-            scaled['total_cost'] = (
-                scaled['steel_cost']
-                + scaled['foundation_cost']
-                + scaled['erection_cost']
-                + scaled['transport_cost']
-                + scaled.get('land_cost', 0.0)
-            )
-            return scaled
-
-        cost_breakdown_final = _apply_tower_scaling(cost_breakdown_final, geometry_tower_type, deviation_angle_deg, inputs.voltage_level)
         
         # Convert to canonical tower response
         tower_response = _create_tower_response(
@@ -334,66 +135,26 @@ def optimize_route(
             geometry_tower_type=geometry_tower_type,
             deviation_angle_deg=deviation_angle_deg,
             design_reason=classification_reason,
-            cost_breakdown=cost_breakdown_final,
-            governing_uplift_case=foundation_uplift_case,
         )
         optimized_towers.append(tower_response)
         
-        # CRITICAL FIX 1: SPAN–TOWER CONSISTENCY
-        # Create span for EVERY pair of sequential towers (T0–T1, T1–T2, ...)
-        # This ensures N towers = N-1 spans
+        # Create span if not last tower
         if i < len(tower_positions) - 1:
             next_tower_pos = tower_positions[i + 1]
-            
-            # Calculate actual span length from positions
-            actual_span_length = next_tower_pos.distance_along_route_m - tower_pos.distance_along_route_m
-            
-            # CRITICAL: Validate span length - throw error if invalid (do NOT silently skip)
-            if actual_span_length <= 0.0:
-                raise ValueError(
-                    f"Invalid span from tower {i} to {i+1}: length={actual_span_length:.2f}m. "
-                    f"Tower {i} at {tower_pos.distance_along_route_m:.2f}m, "
-                    f"Tower {i+1} at {next_tower_pos.distance_along_route_m:.2f}m"
-                )
-            
-            if actual_span_length < inputs.span_min:
-                raise ValueError(
-                    f"Span from tower {i} to {i+1} is {actual_span_length:.2f}m, "
-                    f"which is below minimum span {inputs.span_min:.2f}m"
-                )
-            
-            # Use selected span from tower position if available (from adaptive optimization)
-            # But ensure it matches actual distance (prevent inconsistencies)
-            selected_span = next_tower_pos.selected_span_m if hasattr(next_tower_pos, 'selected_span_m') and next_tower_pos.selected_span_m else actual_span_length
-            
-            # Ensure selected_span matches actual distance (within tolerance)
-            if abs(selected_span - actual_span_length) > 1.0:  # 1m tolerance
-                # Use actual distance if selected span doesn't match
-                selected_span = actual_span_length
-                logger.warning(f"Selected span {next_tower_pos.selected_span_m:.2f}m doesn't match actual {actual_span_length:.2f}m, using actual")
-            
-            span_selection_reason = next_tower_pos.span_selection_reason if hasattr(next_tower_pos, 'span_selection_reason') else None
+            span_length = next_tower_pos.distance_along_route_m - tower_pos.distance_along_route_m
             
             span_response = _create_span_response(
                 from_tower_index=i,
                 to_tower_index=i + 1,
-                span_length_m=selected_span,  # Use selected span from adaptive optimization
+                span_length_m=span_length,
                 from_tower_pos=tower_pos,
                 to_tower_pos=next_tower_pos,
                 inputs=inputs,
                 terrain_profile=terrain_profile_parsed,
-                span_selection_reason=span_selection_reason,  # Pass selection reason
             )
             optimized_spans.append(span_response)
     
-    # CRITICAL FIX 1: Validate span-tower consistency before aggregation
-    if len(optimized_spans) != len(optimized_towers) - 1:
-        raise ValueError(
-            f"SPAN–TOWER CONSISTENCY VIOLATION: Expected {len(optimized_towers) - 1} spans for {len(optimized_towers)} towers, "
-            f"but got {len(optimized_spans)} spans. This indicates a structural error in tower placement."
-        )
-    
-    # Step 4: Aggregate into canonical format
+    # Step 3: Aggregate into canonical format
     return _aggregate_route_results(
         towers=optimized_towers,
         spans=optimized_spans,
@@ -401,15 +162,6 @@ def optimize_route(
         project_length_km=project_length_km,
         row_mode=row_mode,
         terrain_profile=terrain_profile_parsed,
-        location_auto_detected=location_auto_detected,
-        wind_source=wind_source,
-        terrain_source=terrain_source,
-        route_coordinates=route_coordinates,
-        geo_context=design_options_with_route.get('_geo_context'),
-        resolution_mode=design_options_with_route.get('_resolution_mode'),
-        standard_explanation=design_options_with_route.get('_standard_explanation'),
-        span_strategy=span_strategy,  # SPAN REBALANCING: Pass strategy
-        balanced_span_m=balanced_span_m,  # SPAN REBALANCING: Pass balanced span
     )
 
 
@@ -418,40 +170,46 @@ def _create_tower_response(
     result,
     inputs: OptimizationInputs,
     tower_index: int,
-    geometry_tower_type=None,
-    deviation_angle_deg: Optional[float] = None,
-    design_reason: Optional[str] = None,
-    cost_breakdown: Optional[dict] = None,
-    governing_uplift_case: Optional[str] = None,
+    geometry_tower_type: TowerType,
+    deviation_angle_deg: Optional[float],
+    design_reason: str,
 ) -> TowerResponse:
     """Create TowerResponse from optimized result."""
     from backend.services.canonical_converter import calculate_steel_weight_kg, calculate_concrete_volume_m3
     from cost_engine import calculate_cost_with_breakdown
     from intelligence.intelligence_manager import IntelligenceManager
-    from data_models import TowerType
     
     design = result.best_design
     
-    # UPGRADE 1: Use geometry-derived tower type if provided, otherwise use design's type
-    if geometry_tower_type is None:
-        geometry_tower_type = design.tower_type
+    # Calculate base costs
+    _, cost_breakdown = calculate_cost_with_breakdown(design, inputs)
     
-    # Calculate costs (use provided cost_breakdown if available, otherwise recalculate)
-    if cost_breakdown is None:
-        _, cost_breakdown = calculate_cost_with_breakdown(design, inputs)
+    # Ensure transport_cost exists (it's calculated as 20% of erection_cost)
+    if 'transport_cost' not in cost_breakdown:
+        cost_breakdown['transport_cost'] = cost_breakdown.get('erection_cost', 0.0) * 0.2
     
-    # CRITICAL FIX 5: Cost Calculation Sanity
-    # Costs are calculated in USD internally by cost_engine
-    # Currency conversion is applied here based on resolved currency
-    # Get currency from inputs (will be resolved in aggregation)
-    cost_multiplier = 1.0  # Default: no conversion (USD)
+    # Apply tower type scaling (physics & cost scaling)
+    cost_breakdown_scaled = _apply_tower_scaling(
+        cost_breakdown, geometry_tower_type, deviation_angle_deg, inputs.voltage_level
+    )
     
-    # Note: Currency conversion will be applied in aggregation layer
-    # where currency is properly resolved from geo_context
+    # Currency conversion
+    intelligence_manager = IntelligenceManager()
+    display_currency = "USD"
+    exchange_rate = None
+    
+    if inputs.project_location.lower() in ["india", "indian"]:
+        display_currency = "INR"
+        exchange_rate = intelligence_manager.get_currency_rate("USD", "INR")
+        if exchange_rate is None:
+            exchange_rate = 83.0
+    
+    cost_multiplier = exchange_rate if (display_currency == "INR" and exchange_rate) else 1.0
+    currency_symbol = "₹" if display_currency == "INR" else "$"
     
     steel_weight_kg = calculate_steel_weight_kg(design, inputs)
-    erection_cost_total = cost_breakdown['erection_cost']
-    transport_cost = erection_cost_total * 0.2
+    erection_cost_total = cost_breakdown_scaled['erection_cost']
+    transport_cost = cost_breakdown_scaled['transport_cost']
     
     from backend.models.canonical import TowerResponse, TowerSafetyStatus
     
@@ -460,13 +218,12 @@ def _create_tower_response(
         distance_along_route_m=tower_pos.distance_along_route_m,
         latitude=tower_pos.latitude,
         longitude=tower_pos.longitude,
-        tower_type=geometry_tower_type.value,  # UPGRADE 1: Use geometry-derived type
-        deviation_angle_deg=deviation_angle_deg,  # UPGRADE 1: Store deviation angle
+        tower_type=geometry_tower_type.value,  # Use geometry-driven type, not design.tower_type
+        deviation_angle_deg=deviation_angle_deg,  # Store deviation angle
         base_height_m=design.tower_height * 0.4,
         body_extension_m=design.tower_height * 0.6,
         total_height_m=design.tower_height,
         base_width_m=design.base_width,  # CRITICAL: Tower base width (not footing width)
-        design_reason=design_reason,
         leg_extensions_m=None,
         foundation_type=design.foundation_type.value,
         foundation_dimensions={
@@ -475,16 +232,77 @@ def _create_tower_response(
             "depth": design.footing_depth,
         },
         steel_weight_kg=steel_weight_kg,
-        steel_cost=round(cost_breakdown['steel_cost'] * cost_multiplier, 2),
-        foundation_cost=round(cost_breakdown['foundation_cost'] * cost_multiplier, 2),
+        steel_cost=round(cost_breakdown_scaled['steel_cost'] * cost_multiplier, 2),
+        foundation_cost=round(cost_breakdown_scaled['foundation_cost'] * cost_multiplier, 2),
         erection_cost=round(erection_cost_total * cost_multiplier, 2),
         transport_cost=round(transport_cost * cost_multiplier, 2),
-        land_ROW_cost=round(cost_breakdown['land_cost'] * cost_multiplier, 2),
-        total_cost=round(cost_breakdown['total_cost'] * cost_multiplier, 2),
+        land_ROW_cost=round(cost_breakdown_scaled.get('land_cost', 0.0) * cost_multiplier, 2),
+        total_cost=round(cost_breakdown_scaled['total_cost'] * cost_multiplier, 2),
+        design_reason=design_reason,
         safety_status=TowerSafetyStatus.SAFE if result.is_safe else TowerSafetyStatus.GOVERNING,
-        governing_load_case=result.safety_violations[0] if result.safety_violations else None,
-        governing_uplift_case=governing_uplift_case,  # UPGRADE 3: Foundation uplift case
+        governing_load_case=result.safety_violations[0] if (hasattr(result, 'safety_violations') and result.safety_violations) else None,
     )
+
+
+def _apply_tower_scaling(
+    costs: dict,
+    tower_type: TowerType,
+    deviation: Optional[float],
+    voltage_kv: float
+) -> dict:
+    """
+    Apply physics & cost scaling based on tower type and deviation.
+    
+    Rules:
+    - Suspension: Base design, no penalties
+    - Angle: Steel × 1.5, Foundation × 1.3
+    - Dead-End: Voltage-aware scaling (1.6-2.8 for steel, 1.4-1.7 for foundation)
+    
+    Args:
+        costs: Cost breakdown dictionary
+        tower_type: Classified tower type
+        deviation: Deviation angle in degrees (for dead-end scaling)
+        voltage_kv: Voltage level in kV
+        
+    Returns:
+        Scaled cost breakdown dictionary
+    """
+    scaled = costs.copy()
+    dev = deviation or 0.0
+    
+    # Ensure transport_cost exists (it's calculated as 20% of erection_cost)
+    if 'transport_cost' not in scaled:
+        scaled['transport_cost'] = scaled.get('erection_cost', 0.0) * 0.2
+    
+    if tower_type == TowerType.ANGLE:
+        # Angle Towers: Fixed multipliers
+        steel_mult = 1.5  # Fixed multiplier for Angle towers
+        foundation_mult = 1.3
+        scaled['steel_cost'] *= steel_mult
+        scaled['foundation_cost'] *= foundation_mult
+    elif tower_type == TowerType.DEAD_END:
+        # Dead-End Towers: Voltage-aware scaling bands
+        if voltage_kv >= 765:
+            steel_mult = 2.2 + 0.6 * min(max(dev / 20.0, 0.0), 1.0)  # 2.2 – 2.8
+        elif voltage_kv >= 400:
+            steel_mult = 1.8 + 0.5 * min(max(dev / 30.0, 0.0), 1.0)  # 1.8 – 2.3
+        else:
+            steel_mult = 1.6 + 0.4 * min(max(dev / 35.0, 0.0), 1.0)  # 1.6 – 2.0
+        
+        foundation_mult = 1.4 + 0.3 * min(max(dev / 35.0, 0.0), 1.0)  # 1.4 – 1.7
+        scaled['steel_cost'] *= steel_mult
+        scaled['foundation_cost'] *= foundation_mult
+    # Suspension towers: No scaling (base design)
+    
+    # Recompute total cost and derived components (transport remains proportional to erection)
+    scaled['total_cost'] = (
+        scaled['steel_cost']
+        + scaled['foundation_cost']
+        + scaled['erection_cost']
+        + scaled['transport_cost']
+        + scaled.get('land_cost', 0.0)
+    )
+    return scaled
 
 
 def _create_span_response(
@@ -495,7 +313,6 @@ def _create_span_response(
     to_tower_pos: TowerPosition,
     inputs: OptimizationInputs,
     terrain_profile: List[TerrainPoint],
-    span_selection_reason: Optional[str] = None,
 ) -> SpanResponse:
     """Create SpanResponse from tower positions."""
     from auto_spotter import AutoSpotter
@@ -515,23 +332,6 @@ def _create_span_response(
     clearance = conductor_height - mid_elevation
     clearance_margin_percent = (clearance / avg_tower_height) * 100.0 if avg_tower_height > 0 else 0.0
     
-    # Determine governing reason
-    governing_reason = None
-    if span_selection_reason:
-        if "cheapest safe" in span_selection_reason.lower():
-            governing_reason = f"Cost optimization: {span_selection_reason}"
-        elif "end-of-line" in span_selection_reason.lower():
-            governing_reason = span_selection_reason
-        elif "unsafe" in span_selection_reason.lower():
-            governing_reason = span_selection_reason
-        else:
-            governing_reason = span_selection_reason
-    
-    # FIX 3: Add ruling span disclaimer if applicable
-    if governing_reason and "ruling span" in governing_reason.lower():
-        if not governing_reason.endswith("Full multi-span equilibrium not solved."):
-            governing_reason += " Ruling span approximated. Full multi-span equilibrium not solved."
-    
     return SpanResponse(
         from_tower_index=from_tower_index,
         to_tower_index=to_tower_index,
@@ -543,7 +343,6 @@ def _create_span_response(
         ice_load_used=inputs.include_ice_load,
         governing_case=None,
         is_safe=clearance >= 10.0,  # Minimum clearance requirement
-        governing_reason=governing_reason,  # Add span selection reason
     )
 
 
@@ -558,11 +357,6 @@ def _aggregate_route_results(
     wind_source: Optional[str] = None,
     terrain_source: Optional[str] = None,
     route_coordinates: Optional[List[Dict[str, Any]]] = None,
-    geo_context: Optional[GeoContext] = None,
-    resolution_mode: Optional[str] = None,
-    standard_explanation: Optional[str] = None,
-    span_strategy: str = "original",
-    balanced_span_m: Optional[float] = None,
 ) -> CanonicalOptimizationResult:
     """Aggregate route-level results into canonical format."""
     from backend.models.canonical import (
@@ -621,167 +415,28 @@ def _aggregate_route_results(
         total_project_cost=round(total_project_cost, 2),
         cost_per_km=round(cost_per_km, 2),
         estimated_towers_for_project_length=total_towers,
-        wind_source=wind_source,
-        terrain_source=terrain_source,
     )
     
-    # CRITICAL FIX 4: Currency & Standard Resolution - NO SILENT DEFAULTS
-    # Currency and governing standard MUST be resolved from geo_context
-    # If geo_context is missing or unresolved, STOP and return validation error
+    # Resolve currency first (before creating cost_breakdown)
+    # resolve_currency now always returns a valid dict (defaults to USD for non-India, INR for India if IS standard)
+    currency_dict = resolve_currency(
+        location=inputs.project_location,
+        route_coordinates=route_coordinates,
+        governing_standard=inputs.governing_standard.value if hasattr(inputs, 'governing_standard') else None
+    )
     
-    currency_dict = None
-    geo_location_error = False
+    # Calculate total project cost
+    total_project_cost = steel_total + foundation_total + erection_total + transport_total + land_ROW_total
     
-    if geo_context:
-        from backend.services.geo_resolver import resolve_currency_from_geo
-        currency_dict, resolution_mode_currency, currency_explanation = resolve_currency_from_geo(geo_context)
-        
-        # If geo_context exists but currency resolution failed, it's a geolocation derivation error
-        if not currency_dict or currency_dict.get("code") is None:
-            geo_location_error = True
-            logger.warning(
-                f"Geolocation derivation error: Currency resolution failed from geo_context. "
-                f"Country: {geo_context.country_code if geo_context else 'Unknown'}. "
-                f"Falling back to default currency (USD for non-India, INR for India)."
-            )
-    else:
-        # If geo_context is missing, try to derive from route coordinates
-        if route_coordinates and len(route_coordinates) > 0:
-            # Try to derive from route coordinates
-            from backend.services.location_deriver import derive_location_from_coordinates, reverse_geocode_simple
-            # Get country code from first coordinate
-            first_coord = route_coordinates[0]
-            lat = first_coord.get("lat")
-            lon = first_coord.get("lon")
-            if lat is not None and lon is not None:
-                country_code = reverse_geocode_simple(lat, lon)
-            else:
-                country_code = None
-            
-            if country_code:
-                # Map country code to currency
-                country_currency_map = {
-                    "IN": {"code": "INR", "symbol": "₹", "label": "INR"},
-                    "US": {"code": "USD", "symbol": "$", "label": "USD"},
-                    "GB": {"code": "GBP", "symbol": "£", "label": "GBP"},
-                    "DE": {"code": "EUR", "symbol": "€", "label": "EUR"},
-                    "FR": {"code": "EUR", "symbol": "€", "label": "EUR"},
-                    "AU": {"code": "AUD", "symbol": "A$", "label": "AUD"},
-                }
-                currency_dict = country_currency_map.get(country_code)
-                if currency_dict:
-                    currency_dict["resolution_mode"] = "coordinate-derived"
-                    currency_dict["resolution_explanation"] = f"Currency derived from route coordinates (country: {country_code})"
-            else:
-                geo_location_error = True
-                logger.warning(
-                    "Geolocation derivation error: Could not determine country from route coordinates. "
-                    "Falling back to default currency (USD for non-India, INR for India)."
-                )
-        else:
-            geo_location_error = True
-            logger.warning(
-                "Geolocation derivation error: geo_context is missing and route_coordinates are not available. "
-                "Falling back to default currency (USD for non-India, INR for India)."
-            )
-        
-        # If still no currency, check if standard can help (IS → INR only)
-        if not currency_dict and inputs.governing_standard.value == "IS":
-            currency_dict = {
-                "code": "INR",
-                "symbol": "₹",
-                "label": "INR",
-                "resolution_mode": "standard-derived",
-                "resolution_explanation": "Currency derived from governing standard (IS → INR)."
-            }
-    
-    # FALLBACK: Default to USD for non-India, INR for India (if standard is IS)
-    if not currency_dict:
-        if inputs.governing_standard.value == "IS":
-            # India: Use INR
-            currency_dict = {
-                "code": "INR",
-                "symbol": "₹",
-                "label": "INR",
-                "resolution_mode": "fallback-standard",
-                "resolution_explanation": "Currency defaulted to INR based on governing standard (IS). "
-                                        + ("Geolocation derivation failed." if geo_location_error else "Geographic context unavailable.")
-            }
-        else:
-            # All other countries: Default to USD
-            currency_dict = {
-                "code": "USD",
-                "symbol": "$",
-                "label": "USD",
-                "resolution_mode": "fallback-default",
-                "resolution_explanation": "Currency defaulted to USD (geographic context unavailable or unresolved). "
-                                        + ("Geolocation derivation failed." if geo_location_error else "")
-            }
-            logger.info(
-                "Currency resolution: Defaulting to USD. "
-                + ("Geolocation derivation failed - could not determine country from coordinates." if geo_location_error else "Geographic context not available.")
-            )
-    
-    currency_code = currency_dict["code"]
-    currency_symbol = currency_dict["symbol"]
-    
-    # CRITICAL FIX: Apply currency conversion if needed
-    # Cost engine calculates in USD, convert to target currency using approved crawler data
-    from intelligence.intelligence_manager import IntelligenceManager
-    intelligence_manager = IntelligenceManager()
-    exchange_rate = None
-    
-    if currency_code != "USD":
-        # Get exchange rate from IntelligenceManager (uses approved crawler data)
-        exchange_rate = intelligence_manager.get_currency_rate("USD", currency_code)
-        
-        if exchange_rate is None:
-            # Fallback rates if crawler data not available
-            fallback_rates = {
-                "INR": 83.0,
-                "GBP": 0.79,
-                "EUR": 0.92,
-                "AUD": 1.52,
-            }
-            exchange_rate = fallback_rates.get(currency_code, 1.0)
-            logger.warning(f"Currency rate not found in approved data, using fallback: {currency_code} = {exchange_rate}")
-        else:
-            logger.info(f"Using approved currency rate from crawler: USD to {currency_code} = {exchange_rate}")
-    else:
-        exchange_rate = 1.0
-    
-    # Apply currency conversion to all costs
-    currency_multiplier = exchange_rate
-    
-    # CRITICAL FIX: Convert individual tower costs to target currency
-    # Tower costs are stored in USD, need to convert them for display
-    # Pydantic models allow field modification, so we can update in place
-    if currency_code != "USD" and currency_multiplier != 1.0:
-        for tower in towers:
-            # Convert each cost field
-            tower.steel_cost = round(tower.steel_cost * currency_multiplier, 2)
-            tower.foundation_cost = round(tower.foundation_cost * currency_multiplier, 2)
-            tower.erection_cost = round(tower.erection_cost * currency_multiplier, 2)
-            tower.transport_cost = round(tower.transport_cost * currency_multiplier, 2)
-            tower.land_ROW_cost = round(tower.land_ROW_cost * currency_multiplier, 2)
-            tower.total_cost = round(tower.total_cost * currency_multiplier, 2)
-    
-    # Recalculate totals after conversion
-    steel_total_converted = sum(t.steel_cost for t in towers)
-    foundation_total_converted = sum(t.foundation_cost for t in towers)
-    erection_total_converted = sum(t.erection_cost for t in towers)
-    transport_total_converted = sum(t.transport_cost for t in towers)
-    land_ROW_total_converted = sum(t.land_ROW_cost for t in towers)
-    
-    # CRITICAL FIX: Cost breakdown uses resolved currency with proper conversion
     cost_breakdown = CostBreakdownResponse(
-        steel_total=round(steel_total_converted, 2),
-        foundation_total=round(foundation_total_converted, 2),
-        erection_total=round(erection_total_converted, 2),
-        transport_total=round(transport_total_converted, 2),
-        land_ROW_total=round(land_ROW_total_converted, 2),
-        currency=currency_code,
-        currency_symbol=currency_symbol,
+        steel_total=round(steel_total, 2),
+        foundation_total=round(foundation_total, 2),
+        erection_total=round(erection_total, 2),
+        transport_total=round(transport_total, 2),
+        land_ROW_total=round(land_ROW_total, 2),
+        total_project_cost=round(total_project_cost, 2),
+        currency=currency_dict["code"],
+        currency_symbol=currency_dict["symbol"],
     )
     
     # Safety summary
@@ -798,33 +453,10 @@ def _aggregate_route_results(
     if inputs.conservative_foundation:
         active_scenarios.append("Conservative foundation design mode")
     
-    # UPGRADE 2 & 3: Evaluate broken-wire and foundation uplift status
-    broken_wire_status = "NOT_EVALUATED"
-    foundation_uplift_governed = False
-    
-    if inputs.include_broken_wire:
-        # Check if any tower had broken-wire violations
-        broken_wire_violations = [
-            t.governing_load_case for t in towers 
-            if t.governing_load_case and "broken" in t.governing_load_case.lower()
-        ]
-        if broken_wire_violations:
-            broken_wire_status = "GOVERNING"
-        else:
-            broken_wire_status = "PASS"
-    
-    # Check if any tower is governed by uplift
-    uplift_governed_towers = [
-        t for t in towers if t.governing_uplift_case is not None
-    ]
-    foundation_uplift_governed = len(uplift_governed_towers) > 0
-    
     safety_summary = SafetySummaryResponse(
         overall_status="SAFE",  # Always safe (enforced by converter)
         governing_risks=governing_risks,
         design_scenarios_applied=active_scenarios if active_scenarios else ["No additional scenarios"],
-        broken_wire_case=broken_wire_status,  # UPGRADE 2: Broken wire case status
-        foundation_uplift_governed=foundation_uplift_governed,  # UPGRADE 3: Foundation uplift status
     )
     
     # Regional context
@@ -894,26 +526,6 @@ def _aggregate_route_results(
         row_mode=row_mode,
     )
     
-    # FIX 3: Calculate ruling span for strain sections
-    from backend.services.ruling_span import group_towers_into_strain_sections, get_ruling_span_advisory
-    strain_sections = group_towers_into_strain_sections(
-        [t.dict() for t in towers],
-        [s.dict() for s in spans]
-    )
-    
-    # Add ruling span advisories
-    ruling_span_advisories = []
-    for section in strain_sections:
-        advisory = get_ruling_span_advisory(section['ruling_span_m'], inputs.voltage_level)
-        if advisory:
-            ruling_span_advisories.append({
-                'risk_name': f"Ruling Span - Section {section['section_index']}",
-                'risk_category': "design_advisory",
-                'reason': advisory,
-                'not_evaluated': "Ruling span approximated. Full multi-span equilibrium not solved.",
-                'suggested_action': "Verify conductor tension and sag limits with detailed design tools.",
-            })
-    
     # Warnings and advisories
     warnings = []
     advisories = [
@@ -927,9 +539,6 @@ def _aggregate_route_results(
         for adv in risk_advisories
     ]
     
-    # Add ruling span advisories
-    advisories.extend(ruling_span_advisories)
-    
     ref_status = IntelligenceManager().get_reference_status()
     reference_data_status = {
         'cost_index': ref_status.get('cost_index', 'N/A'),
@@ -941,20 +550,14 @@ def _aggregate_route_results(
     optimization_info = {
         'iterations': sum(1 for _ in towers),  # Approximate
         'converged': True,
-        'span_strategy': span_strategy,  # SPAN REBALANCING: Strategy used ("balanced" or "original")
-        'balanced_span_m': balanced_span_m,  # SPAN REBALANCING: Balanced span length (None if original strategy)
     }
     
-    # Currency context (handle None case)
-    currency_context = None
-    if currency_dict:
-        currency_context = CurrencyContextResponse(
-            code=currency_dict["code"],
-            symbol=currency_dict["symbol"],
-            label=currency_dict["label"],
-            resolution_mode=currency_dict.get("resolution_mode"),
-            resolution_explanation=currency_dict.get("resolution_explanation"),
-        )
+    # Currency context (already resolved above)
+    currency_context = CurrencyContextResponse(
+        code=currency_dict["code"],
+        symbol=currency_dict["symbol"],
+        label=currency_dict["label"]
+    )
     
     return CanonicalOptimizationResult(
         towers=towers,

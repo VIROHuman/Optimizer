@@ -4,18 +4,6 @@ Particle Swarm Optimization (PSO) Module.
 Manual implementation of PSO for transmission tower design optimization.
 
 ═══════════════════════════════════════════════════════════════════════════
-SYSTEM POSITIONING:
-═══════════════════════════════════════════════════════════════════════════
-
-This system operates upstream of detailed design tools.
-It narrows corridors, budgets risk, and guides engineering effort.
-
-This tool is NOT a member-level structural design engine and must NOT
-attempt to compete with PLS-CADD.
-
-Target accuracy: ±25-30% for feasibility/DPR-stage estimates.
-
-═══════════════════════════════════════════════════════════════════════════
 CORE CONTRACT (NON-NEGOTIABLE):
 ═══════════════════════════════════════════════════════════════════════════
 
@@ -30,9 +18,6 @@ This optimizer MUST always return the cheapest SAFE design.
 The optimizer is code-agnostic and relies entirely on the codal engine
 for safety validation. Cost minimization is the objective, safety is
 a hard constraint enforced via penalty.
-
-Steel weights are calibrated using Tower Efficiency Factors (FIX 1).
-This is calibration, not design - adjusting for known over-estimation.
 ═══════════════════════════════════════════════════════════════════════════
 """
 
@@ -52,41 +37,31 @@ from cost_engine import calculate_cost
 # Penalty for unsafe designs (must be larger than any realistic cost)
 VERY_LARGE_PENALTY = 1e10
 
-# Geometry-coupled base width constraint
-# Base width must scale proportionally with tower height for realistic transmission towers
-# Tower-type-specific ratios: Different tower types require different base widths
-# Suspension: 0.20 (lighter loads, can be narrower)
-# Angle/Tension: 0.22 (intermediate loads)
-# Dead-end: 0.25 (heavier loads, need wider base for stability)
-MIN_BASE_WIDTH_RATIO = 0.18  # Absolute minimum ratio (0.18 * height) - safety net
-REGIONAL_MIN_BASE_WIDTH = {
-    132: 5.0,   # 132kV minimum
-    220: 6.0,   # 220kV minimum
-    400: 7.0,   # 400kV minimum (CRITICAL)
-    765: 8.0,   # 765kV minimum
-    900: 9.0,   # 900kV minimum
-}
-
 
 def get_base_width_ratio_for_tower_type(tower_type: TowerType) -> float:
     """
-    Get tower-type-specific base width ratio.
+    Get minimum base width to height ratio for a given tower type.
+    
+    Different tower types require different base width ratios based on their
+    structural requirements:
+    - Suspension towers: least critical, minimum ratio
+    - Angle towers: moderate loads, slightly higher ratio
+    - Tension towers: higher loads, higher ratio
+    - Dead-end towers: highest loads, maximum ratio
     
     Args:
-        tower_type: Type of transmission tower
+        tower_type: TowerType enum value
         
     Returns:
-        Base width ratio (base_width >= height × ratio)
+        Minimum base width ratio (base_width / tower_height)
     """
-    # Tower-type-specific ratios based on structural requirements
-    if tower_type == TowerType.SUSPENSION:
-        return 0.20  # Suspension towers: lighter loads, can be narrower (20% of height)
-    elif tower_type == TowerType.DEAD_END:
-        return 0.25  # Dead-end towers: heavier loads, need wider base (25% of height)
-    elif tower_type in [TowerType.ANGLE, TowerType.TENSION]:
-        return 0.22  # Angle/Tension towers: intermediate loads (22% of height)
-    else:
-        return 0.22  # Default fallback
+    ratios = {
+        TowerType.SUSPENSION: 0.25,  # Least critical, minimum ratio
+        TowerType.ANGLE: 0.28,       # Moderate loads
+        TowerType.TENSION: 0.32,     # Higher loads
+        TowerType.DEAD_END: 0.35,    # Highest loads, most critical
+    }
+    return ratios.get(tower_type, 0.25)  # Default to suspension ratio if unknown
 
 
 @dataclass(frozen=False)  # Must be mutable for PSO updates
@@ -165,25 +140,10 @@ class PSOOptimizer:
             if voltage >= v_level:
                 min_height = h
         
-        # Get regional minimum base width for voltage level
-        voltage = inputs.voltage_level
-        regional_min_base = 5.0  # Default minimum
-        for v_level, min_base in sorted(REGIONAL_MIN_BASE_WIDTH.items()):
-            if voltage >= v_level:
-                regional_min_base = min_base
-        
-        # CRITICAL FIX: Set proper base_width bounds for PSO to explore
-        # Dynamic bounds based on height range:
-        # - min_width: max(0.18 * min_height, regional_min, 6.0m hard floor)
-        # - max_width: 0.35 * max_height (60m * 0.35 = 21m)
-        # This gives PSO a valid search space to optimize within
-        min_base_width = max(min_height * 0.18, regional_min_base, 6.0)  # Hard floor: 6.0m
-        max_base_width = 60.0 * 0.35  # Max height (60m) * 0.35 = 21m
-        
         # Decision variable bounds
         self.bounds = {
             'height': (min_height, 60.0),
-            'base_width': (min_base_width, max_base_width),  # Dynamic bounds based on voltage and height
+            'base_width': (0.0, 0.0),  # Will be set relative to height
             'span': (inputs.span_min, inputs.span_max),
             'footing_length': (3.0, 8.0),
             'footing_width': (3.0, 8.0),
@@ -313,34 +273,6 @@ class PSOOptimizer:
         if self.found_safe_design:
             # Use best safe design found during optimization
             final_design = self.global_best_safe_design
-            
-            # CRITICAL: Ensure base width constraint is enforced on final design
-            # This is a defensive check in case the design was modified elsewhere
-            voltage = self.inputs.voltage_level
-            regional_min = 5.0
-            for v_level, min_base in sorted(REGIONAL_MIN_BASE_WIDTH.items()):
-                if voltage >= v_level:
-                    regional_min = min_base
-            
-            tower_type_ratio = get_base_width_ratio_for_tower_type(final_design.tower_type)
-            ratio_based_min = final_design.tower_height * MIN_BASE_WIDTH_RATIO
-            base_width_ratio_min = final_design.tower_height * tower_type_ratio
-            base_width_min = max(ratio_based_min, regional_min, base_width_ratio_min)
-            
-            if final_design.base_width < base_width_min:
-                # Constraint violated - correct it
-                from data_models import TowerDesign
-                final_design = TowerDesign(
-                    tower_type=final_design.tower_type,
-                    tower_height=final_design.tower_height,
-                    base_width=base_width_min,  # Enforce constraint
-                    span_length=final_design.span_length,
-                    foundation_type=final_design.foundation_type,
-                    footing_length=final_design.footing_length,
-                    footing_width=final_design.footing_width,
-                    footing_depth=final_design.footing_depth,
-                )
-            
             final_safety = self.codal_engine.is_design_safe(final_design, self.inputs)
         else:
             # No safe design found - create conservative safe design
@@ -434,41 +366,8 @@ class PSOOptimizer:
             # Random position within bounds
             # Enforce voltage-based minimum height
             height = random.uniform(self.voltage_min_height, self.bounds['height'][1])
-            
-            # CRITICAL FIX 3: Enforce minimum base width constraint for realism
-            # Use tower-type-specific ratio for realistic base widths
-            voltage = self.inputs.voltage_level
-            regional_min = 5.0  # Default minimum
-            for v_level, min_base in sorted(REGIONAL_MIN_BASE_WIDTH.items()):
-                if voltage >= v_level:
-                    regional_min = min_base
-            
-            # Get tower-type-specific base width ratio
-            # Suspension: 0.20, Angle/Tension: 0.22, Dead-end: 0.25
-            tower_type_ratio = get_base_width_ratio_for_tower_type(tower_type)
-            
-            # Apply all constraints: ratio-based AND regional minimum AND tower-type-specific ratio
-            # The tower-type-specific ratio ensures different tower types get different base widths
-            ratio_based_min = height * MIN_BASE_WIDTH_RATIO  # Absolute minimum (0.18 * height)
-            base_width_ratio_min = height * tower_type_ratio  # Tower-type-specific minimum
-            
-            # Use max of all three constraints to ensure all are satisfied
-            base_width_min = max(ratio_based_min, regional_min, base_width_ratio_min)
-            base_width_max = height * 0.35  # Max 35% of height (slightly more conservative than 0.40)
-            
-            # Ensure base_width_min is within the global bounds
-            # CRITICAL: Don't let global bounds override the calculated minimum
-            # The calculated minimum (based on height, regional_min, and tower_type_ratio) takes precedence
-            base_width_min = max(base_width_min, self.bounds['base_width'][0])
-            base_width_max = min(base_width_max, self.bounds['base_width'][1])
-            
-            # CRITICAL FIX: Ensure base_width_min <= base_width_max
-            # If they're equal or min > max, use the calculated minimum
-            if base_width_min >= base_width_max:
-                base_width_max = base_width_min + 1.0  # Add 1m range to allow exploration
-            
-            # Randomize within the valid range
-            # This ensures initial particles start with valid base widths (e.g., 7m-10m for 400kV)
+            base_width_min = height * 0.25
+            base_width_max = height * 0.40
             base_width = random.uniform(base_width_min, base_width_max)
             span = random.uniform(*self.bounds['span'])
             footing_length = random.uniform(*self.bounds['footing_length'])
@@ -485,12 +384,9 @@ class PSOOptimizer:
             ]
             
             # Random velocity
-            # CRITICAL FIX: Base width velocity should be relative to base_width range, not height
-            # This prevents large negative velocities that push base_width below minimum
-            base_width_range = base_width_max - base_width_min
             velocity = [
                 random.uniform(-1, 1) * (self.bounds['height'][1] - self.bounds['height'][0]) * 0.1,
-                random.uniform(-1, 1) * base_width_range * 0.1,  # Use base_width range, not height
+                random.uniform(-1, 1) * height * 0.1,
                 random.uniform(-1, 1) * (self.bounds['span'][1] - self.bounds['span'][0]) * 0.1,
                 random.uniform(-1, 1) * (self.bounds['footing_length'][1] - self.bounds['footing_length'][0]) * 0.1,
                 random.uniform(-1, 1) * (self.bounds['footing_width'][1] - self.bounds['footing_width'][0]) * 0.1,
@@ -534,48 +430,9 @@ class PSOOptimizer:
         # The optimizer MUST enforce bounds here, not rely on post-validation
         # Enforce voltage-based minimum height
         height = max(self.voltage_min_height, min(self.bounds['height'][1], height))
-        
-        # CRITICAL FIX 3: Enforce minimum base width constraint for realism
-        # Use tower-type-specific ratio for realistic base widths
-        # base_width >= max(0.18 * height, regional_minimum, height * tower_type_ratio)
-        voltage = self.inputs.voltage_level
-        regional_min = 5.0  # Default minimum
-        for v_level, min_base in sorted(REGIONAL_MIN_BASE_WIDTH.items()):
-            if voltage >= v_level:
-                regional_min = min_base
-        
-        # Get tower-type-specific base width ratio
-        # Suspension: 0.20, Angle/Tension: 0.22, Dead-end: 0.25
-        tower_type_ratio = get_base_width_ratio_for_tower_type(tower_type)
-        
-        # Apply all constraints: ratio-based AND regional minimum AND tower-type-specific ratio
-        # The tower-type-specific ratio ensures different tower types get different base widths:
-        # - Suspension (0.20): Narrower base for lighter loads
-        # - Dead-end (0.25): Wider base for heavier loads
-        ratio_based_min = height * MIN_BASE_WIDTH_RATIO  # Absolute minimum (0.18 * height)
-        base_width_ratio_min = height * tower_type_ratio  # Tower-type-specific minimum
-        
-        # Use max of all three constraints to ensure all are satisfied
-        # This ensures: base_width >= max(0.18*height, regional_min, tower_type_ratio*height)
-        base_width_min = max(ratio_based_min, regional_min, base_width_ratio_min)
+        base_width_min = height * 0.25
         base_width_max = height * 0.40
-        
-        # CRITICAL: Enforce constraint - base_width MUST be at least base_width_min
-        # This is a hard constraint that cannot be violated
-        original_base_width = base_width
-        if base_width < base_width_min:
-            base_width = base_width_min
-            # Debug logging to track constraint enforcement
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.debug(
-                f"Base width constraint enforced: {tower_type.value} tower, height={height:.2f}m, "
-                f"original={original_base_width:.2f}m -> corrected={base_width:.2f}m "
-                f"(min={base_width_min:.2f}m: ratio={tower_type_ratio}, regional={regional_min:.1f}m)"
-            )
-        elif base_width > base_width_max:
-            base_width = base_width_max
-        # else: Keep original if within bounds
+        base_width = max(base_width_min, min(base_width_max, base_width))
         
         # CRITICAL: Span must be clamped to bounds (250-450 m by default)
         # This is enforced here, not in post-validation
@@ -587,18 +444,6 @@ class PSOOptimizer:
         
         # Choose foundation type (simplified: use pad footing)
         foundation_type = FoundationType.PAD_FOOTING
-        
-        # CRITICAL VALIDATION: Double-check constraint is enforced before creating design
-        # This is a defensive check to catch any bugs
-        if base_width < base_width_min:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(
-                f"Base width constraint violation detected: base_width={base_width:.2f}m < "
-                f"base_width_min={base_width_min:.2f}m for {tower_type.value} tower. "
-                f"Correcting to {base_width_min:.2f}m."
-            )
-            base_width = base_width_min
         
         return TowerDesign(
             tower_type=tower_type,
@@ -641,8 +486,8 @@ class PSOOptimizer:
         )
         
         # CRITICAL FIX: Update position vector to match decoded design
-        # This ensures that if base_width was clamped, the position vector reflects the actual design
-        # Otherwise, best_position will save invalid values (e.g., 3.5m) that pull other particles
+        # This ensures that if base_width was clamped (e.g., 3.5m -> 7.0m), the position vector reflects the actual design
+        # This prevents the optimizer from being pulled toward invalid low base_width values
         particle.position[0] = particle.current_design.tower_height
         particle.position[1] = particle.current_design.base_width  # CRITICAL: Use decoded base_width, not raw position
         particle.position[2] = particle.current_design.span_length

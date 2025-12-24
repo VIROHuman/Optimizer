@@ -347,19 +347,19 @@ def _calculate_steel_cost(
         Steel cost in USD
     """
     # Lattice factor (empirical, range 0.08 - 0.12)
-    k = 0.10
+    k = 0.035
     
     # Tower type multiplier
     type_multiplier = {
         "suspension": 1.0,
-        "angle": 1.1,
+        "angle": 1.5,
         "tension": 1.2,
-        "dead_end": 1.3,
+        "dead_end": 2.5,
     }
     multiplier = type_multiplier.get(design.tower_type.value, 1.0)
     
-    # Base steel weight in tonnes (raw calculation)
-    raw_steel_weight_tonnes = k * design.tower_height * design.base_width * multiplier
+    # Base steel weight in tonnes
+    steel_weight_tonnes = k * design.tower_height * design.base_width * multiplier
     
     # Ice load coupling: When ice load is enabled, increase steel demand
     # Ice loading increases vertical forces, requiring stronger cross-arms and members
@@ -367,67 +367,11 @@ def _calculate_steel_cost(
         # Conservative multiplier: ice increases vertical load by ~30-50%
         # This propagates into cross-arm demand, vertical reactions, and member forces
         ice_multiplier = 1.35  # 35% increase in steel weight for ice loading
-        raw_steel_weight_tonnes *= ice_multiplier
-    
-    # FIX 1: Tower Efficiency Calibration Factors
-    # These factors calibrate raw geometry-based steel weights to feasibility-grade
-    # tower family efficiency. This reduces bloated weights by 20-35%.
-    # This is CALIBRATION, not design - we're adjusting for known over-estimation.
-    TOWER_EFFICIENCY = {
-        "suspension": 0.65,  # 35% reduction - suspension towers are most efficient
-        "angle": 0.75,       # 25% reduction
-        "tension": 0.75,     # 25% reduction (same as angle)
-        "dead_end": 0.85,    # 15% reduction - dead-end towers need more steel
-    }
-    
-    efficiency_factor = TOWER_EFFICIENCY.get(design.tower_type.value, 0.70)
-    
-    # Apply efficiency calibration
-    steel_weight_tonnes = raw_steel_weight_tonnes * efficiency_factor
-    
-    # Safety check: Never reduce below known minimums from reference towers
-    # Minimum steel weight thresholds (tonnes) based on typical reference towers
-    MIN_STEEL_WEIGHT_TONNES = {
-        "suspension": 2.0,   # Minimum for 25m suspension tower
-        "angle": 2.5,        # Minimum for 30m angle tower
-        "tension": 2.5,      # Minimum for 30m tension tower
-        "dead_end": 3.5,     # Minimum for 35m dead-end tower
-    }
-    
-    min_weight = MIN_STEEL_WEIGHT_TONNES.get(design.tower_type.value, 2.0)
-    if steel_weight_tonnes < min_weight:
-        steel_weight_tonnes = min_weight
+        steel_weight_tonnes *= ice_multiplier
     
     # Regional steel rate
     region = _get_region_from_location(inputs.project_location)
-    
-    # CRITICAL: Check IntelligenceManager for approved cost indices from crawler
-    # If approved data exists, use it; otherwise fall back to hardcoded rates
-    from intelligence.intelligence_manager import IntelligenceManager
-    intelligence_manager = IntelligenceManager()
-    
-    # Try to get approved steel cost index from crawler
-    cost_index_data = intelligence_manager.reference_store.get_active_version("cost_index")
-    steel_rate = None
-    
-    if cost_index_data and isinstance(cost_index_data.data, dict):
-        # Look for steel index for this region
-        region_key = region.lower()
-        if region_key in cost_index_data.data:
-            region_data = cost_index_data.data[region_key]
-            if isinstance(region_data, dict) and "steel" in region_data:
-                steel_rate = region_data["steel"].get("value")
-                if steel_rate:
-                    steel_rate = float(steel_rate)
-                    # Ensure rate is in USD per tonne (crawler data should be normalized)
-                    # If crawler provides per kg, convert to per tonne
-                    unit = region_data["steel"].get("unit", "USD/tonne")
-                    if "/kg" in unit.lower():
-                        steel_rate = steel_rate * 1000.0  # Convert per kg to per tonne
-    
-    # Fall back to hardcoded rates if crawler data not available
-    if steel_rate is None:
-        steel_rate = REGIONAL_STEEL_RATES.get(region, REGIONAL_STEEL_RATES["default"])
+    steel_rate = REGIONAL_STEEL_RATES.get(region, REGIONAL_STEEL_RATES["default"])
     
     # Cost
     return steel_weight_tonnes * steel_rate
@@ -440,9 +384,6 @@ def _calculate_foundation_cost(
     """
     Calculate foundation cost (concrete + excavation).
     
-    FIX 4: Foundation costs are classification-based, not design-based.
-    This is an indicative cost estimate for feasibility purposes.
-    
     Tower has 4 individual leg footings.
     
     Args:
@@ -450,7 +391,7 @@ def _calculate_foundation_cost(
         inputs: OptimizationInputs
         
     Returns:
-        Foundation cost in USD (indicative, classification-based)
+        Foundation cost in USD
     """
     # Single footing volume
     single_footing_volume = (
@@ -477,20 +418,9 @@ def _calculate_foundation_cost(
     # Soil adjustment factor
     soil_factor = SOIL_FACTORS.get(inputs.soil_category, SOIL_FACTORS[SoilCategory.MEDIUM])
     
-    # Base foundation cost
+    # Total foundation cost
     base_foundation_cost = concrete_cost + excavation_cost
     foundation_cost = base_foundation_cost * soil_factor
-    
-    # FIX 4: Apply foundation classification cost multiplier
-    # This adjusts cost based on foundation class (Pad/Pile/Rock Anchor)
-    # Foundation classification is based on soil, terrain, slope, water proximity
-    try:
-        from backend.services.foundation_classifier import get_foundation_cost_multiplier
-        classification_multiplier = get_foundation_cost_multiplier(inputs)
-        foundation_cost *= classification_multiplier
-    except ImportError:
-        # Fallback if classifier not available
-        pass
     
     return foundation_cost
 

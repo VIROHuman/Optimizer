@@ -1,0 +1,636 @@
+2025-12-24 14:07:45,195 - backend.services.location_deriver - INFO - Auto-detected location: india (country: IN), standard: IS
+2025-12-24 14:07:45,195 - auto_spotter - INFO - Auto-spotter: route_end_distance=2116.09m, terrain_profile_end=2116.09m, route_coordinates_count=4
+2025-12-24 14:07:45,195 - auto_spotter - INFO - Starting tower placement: current_distance=0.00m, route_end=2116.09m, max_span=450.00m
+2025-12-24 14:07:45,195 - auto_spotter - INFO - Placed final tower at route end: 2116.09m
+2025-12-24 14:07:45,195 - backend.services.route_optimizer - INFO - Auto-spotter placed 6 towers along route
+2025-12-24 14:07:45,195 - backend.services.route_optimizer - INFO - Classified 6 towers based on route geometry
+2025-12-24 14:13:53,339 - backend.services.location_deriver - INFO - Auto-detected location: india (country: IN), standard: IS
+2025-12-24 14:13:53,339 - auto_spotter - INFO - Auto-spotter: route_end_distance=3193.00m, terrain_profile_end=3193.00m, route_coordinates_count=4
+2025-12-24 14:13:53,339 - auto_spotter - INFO - Starting tower placement: current_distance=0.00m, route_end=3193.00m, max_span=450.00m
+2025-12-24 14:17:43,741 - backend.services.location_deriver - INFO - Auto-detected location: india (country: IN), standard: IS
+2025-12-24 14:17:43,741 - auto_spotter - INFO - Auto-spotter: route_end_distance=3604.34m, terrain_profile_end=3604.34m, route_coordinates_count=6
+2025-12-24 14:17:43,741 - auto_spotter - INFO - Starting tower placement: current_distance=0.00m, route_end=3604.34m, max_span=450.00m
+2025-12-24 14:17:43,741 - backend.services.route_optimizer - INFO - Auto-spotter placed 9 towers along route
+2025-12-24 14:17:43,741 - backend.services.route_optimizer - INFO - Classified 9 towers based on route geometry
+2025-12-24 14:21:19,403 - backend.services.location_deriver - INFO - Auto-detected location: india (country: IN), standard: IS
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Auto-spotter: route_end_distance=2856.35m, terrain_profile_end=2856.35m, route_coordinates_count=5
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Starting tower placement: current_distance=0.00m, route_end=2856.35m, max_span=450.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=0.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=120.00m, target=0.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: distance=0.00m -> (23.702961, 76.942791)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Tower 0 at 0.00m: coordinates=(23.702961, 76.942791)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Placed tower 0 at distance 0.00m (lat=23.70296142788513, lon=76.94279099239918)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Attempting next tower at distance 450.00m (route_end=2856.35m)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=450.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=120.00m, target=450.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: distance=450.00m -> (23.723912, 76.936233)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=450.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=120.00m, target=450.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: distance=450.00m -> (23.723912, 76.936233)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Tower 1 at 450.00m: coordinates=(23.723912, 76.936233)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Placed tower 1 at distance 450.00m (lat=23.72391229467516, lon=76.9362330853142)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Attempting next tower at distance 900.00m (route_end=2856.35m)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=900.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=120.00m, target=900.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: distance=900.00m -> (23.723912, 76.936233)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=900.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=120.00m, target=900.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: distance=900.00m -> (23.723912, 76.936233)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Tower 2 at 900.00m: coordinates=(23.723912, 76.936233)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Placed tower 2 at distance 900.00m (lat=23.72391229467516, lon=76.9362330853142)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Attempting next tower at distance 1350.00m (route_end=2856.35m)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=1350.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=120.00m, target=1350.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: distance=1350.00m -> (23.723912, 76.936233)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=1350.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=120.00m, target=1350.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: distance=1350.00m -> (23.723912, 76.936233)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Tower 3 at 1350.00m: coordinates=(23.723912, 76.936233)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Placed tower 3 at distance 1350.00m (lat=23.72391229467516, lon=76.9362330853142)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Attempting next tower at distance 1800.00m (route_end=2856.35m)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=1800.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=120.00m, target=1800.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: distance=1800.00m -> (23.723912, 76.936233)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=1800.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=120.00m, target=1800.00m
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Polyline walker: distance=1800.00m -> (23.723912, 76.936233)
+2025-12-24 14:21:19,403 - auto_spotter - INFO - Tower 4 at 1800.00m: coordinates=(23.723912, 76.936233)
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Placed tower 4 at distance 1800.00m (lat=23.72391229467516, lon=76.9362330853142)
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Attempting next tower at distance 2250.00m (route_end=2856.35m)
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=2250.00m
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=120.00m, target=2250.00m
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Polyline walker: distance=2250.00m -> (23.723912, 76.936233)
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=2250.00m
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=120.00m, target=2250.00m
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Polyline walker: distance=2250.00m -> (23.723912, 76.936233)
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Tower 5 at 2250.00m: coordinates=(23.723912, 76.936233)
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Placed tower 5 at distance 2250.00m (lat=23.72391229467516, lon=76.9362330853142)
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Attempting next tower at distance 2700.00m (route_end=2856.35m)
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=2700.00m
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=120.00m, target=2700.00m
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Polyline walker: distance=2700.00m -> (23.723912, 76.936233)
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=2700.00m
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=120.00m, target=2700.00m
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Polyline walker: distance=2700.00m -> (23.723912, 76.936233)
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Tower 6 at 2700.00m: coordinates=(23.723912, 76.936233)
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Placed tower 6 at distance 2700.00m (lat=23.72391229467516, lon=76.9362330853142)
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Attempting next tower at distance 3150.00m (route_end=2856.35m)
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=2856.35m
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=120.00m, target=2856.35m
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Polyline walker: distance=2856.35m -> (23.723912, 76.936233)
+2025-12-24 14:21:19,415 - auto_spotter - INFO - Placed final tower at route end: 2856.35m
+2025-12-24 14:21:19,415 - backend.services.route_optimizer - INFO - Auto-spotter placed 8 towers along route
+2025-12-24 14:21:19,415 - backend.services.route_optimizer - INFO - Classified 8 towers based on route geometry
+2025-12-24 14:30:31,677 - backend.services.location_deriver - INFO - Auto-detected location: india (country: IN), standard: IS
+2025-12-24 14:30:31,677 - auto_spotter - INFO - Auto-spotter: route_end_distance=5384.10m, terrain_profile_end=5384.10m, route_coordinates_count=6
+2025-12-24 14:30:31,677 - auto_spotter - INFO - Starting tower placement: current_distance=0.00m, route_end=5384.10m, max_span=450.00m
+2025-12-24 14:30:31,677 - auto_spotter - INFO - ================================================================================
+2025-12-24 14:30:31,677 - auto_spotter - INFO - POLYLINE DISTANCE DEBUG
+2025-12-24 14:30:31,677 - auto_spotter - INFO - ================================================================================
+2025-12-24 14:30:31,677 - auto_spotter - INFO - Total route_coordinates: 6
+2025-12-24 14:30:31,677 - auto_spotter - INFO - Point 0: lat=24.385407717750212, lon=76.0315538655475, distance_m=0.0
+2025-12-24 14:30:31,677 - auto_spotter - INFO - Point 1: lat=24.39298209827365, lon=76.03363299936063, distance_m=30.00005105767771
+2025-12-24 14:30:31,677 - auto_spotter - INFO - Point 2: lat=24.399867504749153, lon=76.0400594129627, distance_m=60.00009846068227
+2025-12-24 14:30:31,677 - auto_spotter - INFO - Point 3: lat=24.406752535903223, lon=76.05366828882427, distance_m=90.00014220898397
+2025-12-24 14:30:31,677 - auto_spotter - INFO - Point 4: lat=24.415702515169528, lon=76.0553693983079, distance_m=120.00018230255311
+2025-12-24 14:30:31,684 - auto_spotter - INFO - Point 5: lat=24.420005163939706, lon=76.06330790922652, distance_m=150.00021874136
+2025-12-24 14:30:31,684 - auto_spotter - INFO - Segment 0->1: Haversine distance = 868.15m, Cumulative = 868.15m
+2025-12-24 14:30:31,684 - auto_spotter - INFO - Segment 1->2: Haversine distance = 1004.83m, Cumulative = 1872.99m
+2025-12-24 14:30:31,684 - auto_spotter - INFO - Segment 2->3: Haversine distance = 1576.43m, Cumulative = 3449.41m
+2025-12-24 14:30:31,684 - auto_spotter - INFO - Segment 3->4: Haversine distance = 1009.99m, Cumulative = 4459.40m
+2025-12-24 14:30:31,684 - auto_spotter - INFO - Segment 4->5: Haversine distance = 935.38m, Cumulative = 5394.78m
+2025-12-24 14:30:31,684 - auto_spotter - INFO - Manual total distance: 5394.78m
+2025-12-24 14:30:31,684 - auto_spotter - INFO - _calculate_polyline_total_distance result: 5394.78m
+2025-12-24 14:30:31,857 - auto_spotter - INFO - ================================================================================
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=0.00m
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=0.00m
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: distance=0.00m -> (24.385408, 76.031554)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Tower 0 at 0.00m: coordinates=(24.385408, 76.031554)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Placed tower 0 at distance 0.00m (lat=24.385407717750212, lon=76.0315538655475)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Attempting next tower at distance 450.00m (route_end=5384.10m)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=450.00m
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=450.00m
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: distance=450.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=450.00m
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=450.00m
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: distance=450.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Tower 1 at 450.00m: coordinates=(24.420005, 76.063308)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Placed tower 1 at distance 450.00m (lat=24.420005163939706, lon=76.06330790922652)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Attempting next tower at distance 900.00m (route_end=5384.10m)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=900.00m
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=900.00m
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: distance=900.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=900.00m
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=900.00m
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: distance=900.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Tower 2 at 900.00m: coordinates=(24.420005, 76.063308)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Placed tower 2 at distance 900.00m (lat=24.420005163939706, lon=76.06330790922652)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Attempting next tower at distance 1350.00m (route_end=5384.10m)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=1350.00m
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,857 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,867 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,867 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,867 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=1350.00m
+2025-12-24 14:30:31,867 - auto_spotter - INFO - Polyline walker: distance=1350.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,867 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=1350.00m
+2025-12-24 14:30:31,867 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,870 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,870 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,870 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,871 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,872 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=1350.00m
+2025-12-24 14:30:31,872 - auto_spotter - INFO - Polyline walker: distance=1350.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,873 - auto_spotter - INFO - Tower 3 at 1350.00m: coordinates=(24.420005, 76.063308)
+2025-12-24 14:30:31,873 - auto_spotter - INFO - Placed tower 3 at distance 1350.00m (lat=24.420005163939706, lon=76.06330790922652)
+2025-12-24 14:30:31,873 - auto_spotter - INFO - Attempting next tower at distance 1800.00m (route_end=5384.10m)
+2025-12-24 14:30:31,874 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=1800.00m
+2025-12-24 14:30:31,874 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,875 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,875 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,877 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,878 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,878 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=1800.00m
+2025-12-24 14:30:31,879 - auto_spotter - INFO - Polyline walker: distance=1800.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,879 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=1790.00m
+2025-12-24 14:30:31,879 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,879 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,879 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,879 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,879 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,879 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=1790.00m
+2025-12-24 14:30:31,879 - auto_spotter - INFO - Polyline walker: distance=1790.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,879 - auto_spotter - INFO - Tower 3 at 1790.00m: coordinates=(24.420005, 76.063308)
+2025-12-24 14:30:31,879 - auto_spotter - INFO - Placed tower 3 at distance 1790.00m (lat=24.420005163939706, lon=76.06330790922652)
+2025-12-24 14:30:31,879 - auto_spotter - INFO - Attempting next tower at distance 2240.00m (route_end=5384.10m)
+2025-12-24 14:30:31,882 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=2240.00m
+2025-12-24 14:30:31,882 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,883 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,883 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,883 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,883 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,884 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=2240.00m
+2025-12-24 14:30:31,884 - auto_spotter - INFO - Polyline walker: distance=2240.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,884 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=2240.00m
+2025-12-24 14:30:31,885 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,885 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,885 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,886 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,886 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,886 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=2240.00m
+2025-12-24 14:30:31,886 - auto_spotter - INFO - Polyline walker: distance=2240.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,886 - auto_spotter - INFO - Tower 4 at 2240.00m: coordinates=(24.420005, 76.063308)
+2025-12-24 14:30:31,886 - auto_spotter - INFO - Placed tower 4 at distance 2240.00m (lat=24.420005163939706, lon=76.06330790922652)
+2025-12-24 14:30:31,886 - auto_spotter - INFO - Attempting next tower at distance 2690.00m (route_end=5384.10m)
+2025-12-24 14:30:31,887 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=2690.00m
+2025-12-24 14:30:31,887 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,887 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,887 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,887 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,887 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,887 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=2690.00m
+2025-12-24 14:30:31,887 - auto_spotter - INFO - Polyline walker: distance=2690.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,887 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=2690.00m
+2025-12-24 14:30:31,888 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,888 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,888 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,888 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,888 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,888 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=2690.00m
+2025-12-24 14:30:31,889 - auto_spotter - INFO - Polyline walker: distance=2690.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,889 - auto_spotter - INFO - Tower 5 at 2690.00m: coordinates=(24.420005, 76.063308)
+2025-12-24 14:30:31,890 - auto_spotter - INFO - Placed tower 5 at distance 2690.00m (lat=24.420005163939706, lon=76.06330790922652)
+2025-12-24 14:30:31,890 - auto_spotter - INFO - Attempting next tower at distance 3140.00m (route_end=5384.10m)
+2025-12-24 14:30:31,890 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=3140.00m
+2025-12-24 14:30:31,891 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,892 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,892 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,892 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,892 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,892 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=3140.00m
+2025-12-24 14:30:31,893 - auto_spotter - INFO - Polyline walker: distance=3140.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,893 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=3140.00m
+2025-12-24 14:30:31,893 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,893 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,893 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,894 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,894 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,894 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=3140.00m
+2025-12-24 14:30:31,894 - auto_spotter - INFO - Polyline walker: distance=3140.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,894 - auto_spotter - INFO - Tower 6 at 3140.00m: coordinates=(24.420005, 76.063308)
+2025-12-24 14:30:31,894 - auto_spotter - INFO - Placed tower 6 at distance 3140.00m (lat=24.420005163939706, lon=76.06330790922652)
+2025-12-24 14:30:31,895 - auto_spotter - INFO - Attempting next tower at distance 3590.00m (route_end=5384.10m)
+2025-12-24 14:30:31,896 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=3590.00m
+2025-12-24 14:30:31,897 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,897 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,898 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,898 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,898 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,899 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=3590.00m
+2025-12-24 14:30:31,899 - auto_spotter - INFO - Polyline walker: distance=3590.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,899 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=3590.00m
+2025-12-24 14:30:31,899 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,900 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,900 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,900 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,900 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,900 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=3590.00m
+2025-12-24 14:30:31,901 - auto_spotter - INFO - Polyline walker: distance=3590.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,901 - auto_spotter - INFO - Tower 7 at 3590.00m: coordinates=(24.420005, 76.063308)
+2025-12-24 14:30:31,901 - auto_spotter - INFO - Placed tower 7 at distance 3590.00m (lat=24.420005163939706, lon=76.06330790922652)
+2025-12-24 14:30:31,901 - auto_spotter - INFO - Attempting next tower at distance 4040.00m (route_end=5384.10m)
+2025-12-24 14:30:31,901 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=4040.00m
+2025-12-24 14:30:31,902 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,902 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,902 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,903 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,903 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,904 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=4040.00m
+2025-12-24 14:30:31,904 - auto_spotter - INFO - Polyline walker: distance=4040.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,905 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=4040.00m
+2025-12-24 14:30:31,905 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,905 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,906 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,906 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,906 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,906 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=4040.00m
+2025-12-24 14:30:31,906 - auto_spotter - INFO - Polyline walker: distance=4040.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,906 - auto_spotter - INFO - Tower 8 at 4040.00m: coordinates=(24.420005, 76.063308)
+2025-12-24 14:30:31,906 - auto_spotter - INFO - Placed tower 8 at distance 4040.00m (lat=24.420005163939706, lon=76.06330790922652)
+2025-12-24 14:30:31,907 - auto_spotter - INFO - Attempting next tower at distance 4490.00m (route_end=5384.10m)
+2025-12-24 14:30:31,907 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=4490.00m
+2025-12-24 14:30:31,908 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,909 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,911 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,912 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,913 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,913 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=4490.00m
+2025-12-24 14:30:31,913 - auto_spotter - INFO - Polyline walker: distance=4490.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,914 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=4490.00m
+2025-12-24 14:30:31,914 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,914 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,914 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,915 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,915 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,915 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=4490.00m
+2025-12-24 14:30:31,915 - auto_spotter - INFO - Polyline walker: distance=4490.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,915 - auto_spotter - INFO - Tower 9 at 4490.00m: coordinates=(24.420005, 76.063308)
+2025-12-24 14:30:31,915 - auto_spotter - INFO - Placed tower 9 at distance 4490.00m (lat=24.420005163939706, lon=76.06330790922652)
+2025-12-24 14:30:31,915 - auto_spotter - INFO - Attempting next tower at distance 4940.00m (route_end=5384.10m)
+2025-12-24 14:30:31,915 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=4940.00m
+2025-12-24 14:30:31,916 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,916 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,916 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,916 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,916 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,916 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=4940.00m
+2025-12-24 14:30:31,916 - auto_spotter - INFO - Polyline walker: distance=4940.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,916 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=4940.00m
+2025-12-24 14:30:31,917 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,917 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,917 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,918 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,918 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,919 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=4940.00m
+2025-12-24 14:30:31,919 - auto_spotter - INFO - Polyline walker: distance=4940.00m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,919 - auto_spotter - INFO - Tower 10 at 4940.00m: coordinates=(24.420005, 76.063308)
+2025-12-24 14:30:31,920 - auto_spotter - INFO - Placed tower 10 at distance 4940.00m (lat=24.420005163939706, lon=76.06330790922652)
+2025-12-24 14:30:31,920 - auto_spotter - INFO - Attempting next tower at distance 5390.00m (route_end=5384.10m)
+2025-12-24 14:30:31,920 - auto_spotter - INFO - Polyline walker: Processing 6 route coordinates for target_distance=5384.10m
+2025-12-24 14:30:31,921 - auto_spotter - INFO - Point 1: Route distance=30.00m vs straight-line=868.15m (route is 0.03x longer)
+2025-12-24 14:30:31,921 - auto_spotter - INFO - Point 2: Route distance=30.00m vs straight-line=1004.83m (route is 0.03x longer)
+2025-12-24 14:30:31,921 - auto_spotter - INFO - Point 3: Route distance=30.00m vs straight-line=1576.43m (route is 0.02x longer)
+2025-12-24 14:30:31,921 - auto_spotter - INFO - Point 4: Route distance=30.00m vs straight-line=1009.99m (route is 0.03x longer)
+2025-12-24 14:30:31,921 - auto_spotter - INFO - Point 5: Route distance=30.00m vs straight-line=935.38m (route is 0.03x longer)
+2025-12-24 14:30:31,921 - auto_spotter - INFO - Polyline walker: Processed 6 points, total distance=150.00m, target=5384.10m
+2025-12-24 14:30:31,922 - auto_spotter - INFO - Polyline walker: distance=5384.10m -> (24.420005, 76.063308)
+2025-12-24 14:30:31,922 - auto_spotter - INFO - Placed final tower at route end: 5384.10m
+2025-12-24 14:30:31,922 - backend.services.route_optimizer - INFO - Auto-spotter placed 13 towers along route
+2025-12-24 14:30:31,922 - backend.services.route_optimizer - INFO - Classified 13 towers based on route geometry
+2025-12-24 14:36:13,941 - backend.services.location_deriver - INFO - Auto-detected location: india (country: IN), standard: IS
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Auto-spotter: route_end_distance=5721.52m, terrain_profile_end=5721.52m, route_coordinates_count=9
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Starting tower placement: current_distance=0.00m, route_end=5721.52m, max_span=450.00m
+2025-12-24 14:36:13,941 - auto_spotter - INFO - ================================================================================
+2025-12-24 14:36:13,941 - auto_spotter - INFO - POLYLINE DISTANCE DEBUG
+2025-12-24 14:36:13,941 - auto_spotter - INFO - ================================================================================
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Total route_coordinates: 9
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Point 0: lat=23.62567178883691, lon=86.19314011101898, distance_m=0.0
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Point 1: lat=23.630776867429034, lon=86.1957623339473, distance_m=30.000100935723136
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Point 2: lat=23.633179188495845, lon=86.20158039106917, distance_m=60.00019173414721
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Point 3: lat=23.639485071588965, lon=86.20395678059828, distance_m=90.00027239518894
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Point 4: lat=23.641361763855954, lon=86.20985678218693, distance_m=120.00034291902409
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Point 5: lat=23.633704690353852, lon=86.21739567310442, distance_m=150.00040330505138
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Point 6: lat=23.631527597496785, lon=86.21182344938313, distance_m=180.0004535534465
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Point 7: lat=23.625972093085963, lon=86.20797205945752, distance_m=210.00049366412622
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Point 8: lat=23.62086682722078, lon=86.2061692811937, distance_m=240.00052363700726
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Segment 0->1: Haversine distance = 627.37m, Cumulative = 627.37m
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Segment 1->2: Haversine distance = 650.10m, Cumulative = 1277.47m
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Segment 2->3: Haversine distance = 741.79m, Cumulative = 2019.27m
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Segment 3->4: Haversine distance = 636.19m, Cumulative = 2655.46m
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Segment 4->5: Haversine distance = 1146.60m, Cumulative = 3802.06m
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Segment 5->6: Haversine distance = 617.10m, Cumulative = 4419.16m
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Segment 6->7: Haversine distance = 731.81m, Cumulative = 5150.97m
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Segment 7->8: Haversine distance = 596.65m, Cumulative = 5747.62m
+2025-12-24 14:36:13,941 - auto_spotter - INFO - Manual total distance: 5747.62m
+2025-12-24 14:36:13,941 - auto_spotter - INFO - _calculate_polyline_total_distance result: 5747.62m
+2025-12-24 14:36:13,967 - auto_spotter - INFO - ================================================================================
+2025-12-24 14:36:13,967 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=0.00m
+2025-12-24 14:36:13,967 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=0.00m
+2025-12-24 14:36:13,967 - auto_spotter - INFO - Polyline walker: distance=0.00m -> (23.625672, 86.193140)
+2025-12-24 14:36:13,967 - auto_spotter - INFO - Tower 0 at 0.00m: coordinates=(23.625672, 86.193140)
+2025-12-24 14:36:13,968 - auto_spotter - INFO - Placed tower 0 at distance 0.00m (lat=23.62567178883691, lon=86.19314011101898)
+2025-12-24 14:36:13,968 - auto_spotter - INFO - Attempting next tower at distance 450.00m (route_end=5721.52m)
+2025-12-24 14:36:13,969 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=450.00m
+2025-12-24 14:36:13,969 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=450.00m
+2025-12-24 14:36:13,969 - auto_spotter - INFO - Polyline walker: distance=450.00m -> (23.629334, 86.195021)
+2025-12-24 14:36:13,969 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=450.00m
+2025-12-24 14:36:13,969 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=450.00m
+2025-12-24 14:36:13,970 - auto_spotter - INFO - Polyline walker: distance=450.00m -> (23.629334, 86.195021)
+2025-12-24 14:36:13,970 - auto_spotter - INFO - Tower 1 at 450.00m: coordinates=(23.629334, 86.195021)
+2025-12-24 14:36:13,970 - auto_spotter - INFO - Placed tower 1 at distance 450.00m (lat=23.629333542374358, lon=86.19502097022819)
+2025-12-24 14:36:13,970 - auto_spotter - INFO - Attempting next tower at distance 900.00m (route_end=5721.52m)
+2025-12-24 14:36:13,970 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=900.00m
+2025-12-24 14:36:13,970 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=900.00m
+2025-12-24 14:36:13,971 - auto_spotter - INFO - Polyline walker: distance=900.00m -> (23.631784, 86.198202)
+2025-12-24 14:36:13,971 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=900.00m
+2025-12-24 14:36:13,971 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=900.00m
+2025-12-24 14:36:13,971 - auto_spotter - INFO - Polyline walker: distance=900.00m -> (23.631784, 86.198202)
+2025-12-24 14:36:13,971 - auto_spotter - INFO - Tower 2 at 900.00m: coordinates=(23.631784, 86.198202)
+2025-12-24 14:36:13,971 - auto_spotter - INFO - Placed tower 2 at distance 900.00m (lat=23.631784305687663, lon=86.19820219655203)
+2025-12-24 14:36:13,972 - auto_spotter - INFO - Attempting next tower at distance 1350.00m (route_end=5721.52m)
+2025-12-24 14:36:13,972 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=1350.00m
+2025-12-24 14:36:13,972 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=1350.00m
+2025-12-24 14:36:13,972 - auto_spotter - INFO - Polyline walker: distance=1350.00m -> (23.633796, 86.201813)
+2025-12-24 14:36:13,972 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=1350.00m
+2025-12-24 14:36:13,972 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=1350.00m
+2025-12-24 14:36:13,972 - auto_spotter - INFO - Polyline walker: distance=1350.00m -> (23.633796, 86.201813)
+2025-12-24 14:36:13,972 - auto_spotter - INFO - Tower 3 at 1350.00m: coordinates=(23.633796, 86.201813)
+2025-12-24 14:36:13,973 - auto_spotter - INFO - Placed tower 3 at distance 1350.00m (lat=23.633795714463286, lon=86.20181273058955)
+2025-12-24 14:36:13,973 - auto_spotter - INFO - Attempting next tower at distance 1800.00m (route_end=5721.52m)
+2025-12-24 14:36:13,973 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=1800.00m
+2025-12-24 14:36:13,973 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=1800.00m
+2025-12-24 14:36:13,974 - auto_spotter - INFO - Polyline walker: distance=1800.00m -> (23.637621, 86.203254)
+2025-12-24 14:36:13,974 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=1800.00m
+2025-12-24 14:36:13,974 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=1800.00m
+2025-12-24 14:36:13,975 - auto_spotter - INFO - Polyline walker: distance=1800.00m -> (23.637621, 86.203254)
+2025-12-24 14:36:13,975 - auto_spotter - INFO - Tower 4 at 1800.00m: coordinates=(23.637621, 86.203254)
+2025-12-24 14:36:13,975 - auto_spotter - INFO - Placed tower 4 at distance 1800.00m (lat=23.637621104814897, lon=86.20325433955091)
+2025-12-24 14:36:13,976 - auto_spotter - INFO - Attempting next tower at distance 2250.00m (route_end=5721.52m)
+2025-12-24 14:36:13,976 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=2250.00m
+2025-12-24 14:36:13,976 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=2250.00m
+2025-12-24 14:36:13,976 - auto_spotter - INFO - Polyline walker: distance=2250.00m -> (23.640166, 86.206097)
+2025-12-24 14:36:13,976 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=2250.00m
+2025-12-24 14:36:13,976 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=2250.00m
+2025-12-24 14:36:13,977 - auto_spotter - INFO - Polyline walker: distance=2250.00m -> (23.640166, 86.206097)
+2025-12-24 14:36:13,977 - auto_spotter - INFO - Tower 5 at 2250.00m: coordinates=(23.640166, 86.206097)
+2025-12-24 14:36:13,977 - auto_spotter - INFO - Placed tower 5 at distance 2250.00m (lat=23.640165703794562, lon=86.20609657259558)
+2025-12-24 14:36:13,977 - auto_spotter - INFO - Attempting next tower at distance 2700.00m (route_end=5721.52m)
+2025-12-24 14:36:13,977 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=2700.00m
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=2700.00m
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Polyline walker: distance=2700.00m -> (23.641064, 86.210150)
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=2700.00m
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=2700.00m
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Polyline walker: distance=2700.00m -> (23.641064, 86.210150)
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Tower 6 at 2700.00m: coordinates=(23.641064, 86.210150)
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Placed tower 6 at distance 2700.00m (lat=23.64106432562549, lon=86.21014962962708)
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Attempting next tower at distance 3150.00m (route_end=5721.52m)
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=3150.00m
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=3150.00m
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Polyline walker: distance=3150.00m -> (23.638059, 86.213108)
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=3150.00m
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=3150.00m
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Polyline walker: distance=3150.00m -> (23.638059, 86.213108)
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Tower 7 at 3150.00m: coordinates=(23.638059, 86.213108)
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Placed tower 7 at distance 3150.00m (lat=23.638059185141515, lon=86.21310838747291)
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Attempting next tower at distance 3600.00m (route_end=5721.52m)
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=3600.00m
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=3600.00m
+2025-12-24 14:36:13,978 - auto_spotter - INFO - Polyline walker: distance=3600.00m -> (23.635054, 86.216067)
+2025-12-24 14:36:13,982 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=3600.00m
+2025-12-24 14:36:13,982 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=3600.00m
+2025-12-24 14:36:13,982 - auto_spotter - INFO - Polyline walker: distance=3600.00m -> (23.635054, 86.216067)
+2025-12-24 14:36:13,983 - auto_spotter - INFO - Tower 8 at 3600.00m: coordinates=(23.635054, 86.216067)
+2025-12-24 14:36:13,983 - auto_spotter - INFO - Placed tower 8 at distance 3600.00m (lat=23.63505404465754, lon=86.21606714531875)
+2025-12-24 14:36:13,983 - auto_spotter - INFO - Attempting next tower at distance 4050.00m (route_end=5721.52m)
+2025-12-24 14:36:13,983 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=4050.00m
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=4050.00m
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: distance=4050.00m -> (23.632830, 86.215157)
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=4050.00m
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=4050.00m
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: distance=4050.00m -> (23.632830, 86.215157)
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Tower 9 at 4050.00m: coordinates=(23.632830, 86.215157)
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Placed tower 9 at distance 4050.00m (lat=23.63282996859407, lon=86.21515684101989)
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Attempting next tower at distance 4500.00m (route_end=5721.52m)
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=4500.00m
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=4500.00m
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: distance=4500.00m -> (23.630914, 86.211398)
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=4500.00m
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=4500.00m
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: distance=4500.00m -> (23.630914, 86.211398)
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Tower 10 at 4500.00m: coordinates=(23.630914, 86.211398)
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Placed tower 10 at distance 4500.00m (lat=23.63091391857641, lon=86.21139801244047)
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Attempting next tower at distance 4950.00m (route_end=5721.52m)
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=4950.00m
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=4950.00m
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: distance=4950.00m -> (23.627498, 86.209030)
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=4950.00m
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=4950.00m
+2025-12-24 14:36:13,984 - auto_spotter - INFO - Polyline walker: distance=4950.00m -> (23.627498, 86.209030)
+2025-12-24 14:36:13,989 - auto_spotter - INFO - Tower 11 at 4950.00m: coordinates=(23.627498, 86.209030)
+2025-12-24 14:36:13,989 - auto_spotter - INFO - Placed tower 11 at distance 4950.00m (lat=23.62749776548493, lon=86.20902974186988)
+2025-12-24 14:36:13,990 - auto_spotter - INFO - Attempting next tower at distance 5400.00m (route_end=5721.52m)
+2025-12-24 14:36:13,990 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=5400.00m
+2025-12-24 14:36:13,991 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=5400.00m
+2025-12-24 14:36:13,991 - auto_spotter - INFO - Polyline walker: distance=5400.00m -> (23.623841, 86.207220)
+2025-12-24 14:36:13,991 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=5400.00m
+2025-12-24 14:36:13,991 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=5400.00m
+2025-12-24 14:36:13,991 - auto_spotter - INFO - Polyline walker: distance=5400.00m -> (23.623841, 86.207220)
+2025-12-24 14:36:13,991 - auto_spotter - INFO - Tower 12 at 5400.00m: coordinates=(23.623841, 86.207220)
+2025-12-24 14:36:13,991 - auto_spotter - INFO - Placed tower 12 at distance 5400.00m (lat=23.623841277175924, lon=86.20721962291293)
+2025-12-24 14:36:13,991 - auto_spotter - INFO - Attempting next tower at distance 5850.00m (route_end=5721.52m)
+2025-12-24 14:36:13,991 - auto_spotter - INFO - Polyline walker: Processing 9 route coordinates for target_distance=5721.52m
+2025-12-24 14:36:13,991 - auto_spotter - INFO - Polyline walker: Processed 9 points, total distance=5747.62m, target=5721.52m
+2025-12-24 14:36:13,991 - auto_spotter - INFO - Polyline walker: distance=5721.52m -> (23.621090, 86.206248)
+2025-12-24 14:36:13,991 - auto_spotter - INFO - Placed final tower at route end: 5721.52m
+2025-12-24 14:36:13,991 - backend.services.route_optimizer - INFO - Auto-spotter placed 14 towers along route
+2025-12-24 14:36:13,991 - backend.services.route_optimizer - INFO - Classified 14 towers based on route geometry
+2025-12-24 15:04:06,307 - backend.services.location_deriver - INFO - Auto-detected location: india (country: IN), standard: IS
+2025-12-24 15:04:06,307 - auto_spotter - INFO - Auto-spotter: route_end_distance=2960.04m, terrain_profile_end=2960.04m, route_coordinates_count=5
+2025-12-24 15:04:06,307 - auto_spotter - INFO - Starting tower placement: current_distance=0.00m, route_end=2960.04m, max_span=450.00m
+2025-12-24 15:04:06,307 - auto_spotter - INFO - ================================================================================
+2025-12-24 15:04:06,307 - auto_spotter - INFO - POLYLINE DISTANCE DEBUG
+2025-12-24 15:04:06,307 - auto_spotter - INFO - ================================================================================
+2025-12-24 15:04:06,307 - auto_spotter - INFO - Total route_coordinates: 5
+2025-12-24 15:04:06,307 - auto_spotter - INFO - Point 0: lat=27.958802921479418, lon=76.65722082474304, distance_m=0.0
+2025-12-24 15:04:06,307 - auto_spotter - INFO - Point 1: lat=27.960499298637345, lon=76.66412056877783, distance_m=30.000209457477023
+2025-12-24 15:04:06,307 - auto_spotter - INFO - Point 2: lat=27.96697041849812, lon=76.66639677299577, distance_m=60.00040025377638
+2025-12-24 15:04:06,307 - auto_spotter - INFO - Point 3: lat=27.96960901619518, lon=76.67372330532208, distance_m=90.00057238885458
+2025-12-24 15:04:06,307 - auto_spotter - INFO - Point 4: lat=27.96288674725038, lon=76.67471914466807, distance_m=120.00072586266812
+2025-12-24 15:04:06,307 - auto_spotter - INFO - Segment 0->1: Haversine distance = 703.43m, Cumulative = 703.43m
+2025-12-24 15:04:06,307 - auto_spotter - INFO - Segment 1->2: Haversine distance = 753.48m, Cumulative = 1456.91m
+2025-12-24 15:04:06,307 - auto_spotter - INFO - Segment 2->3: Haversine distance = 777.05m, Cumulative = 2233.96m
+2025-12-24 15:04:06,307 - auto_spotter - INFO - Segment 3->4: Haversine distance = 753.85m, Cumulative = 2987.81m
+2025-12-24 15:04:06,307 - auto_spotter - INFO - Manual total distance: 2987.81m
+2025-12-24 15:04:06,307 - auto_spotter - INFO - _calculate_polyline_total_distance result: 2987.81m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - ================================================================================
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=0.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=2987.81m, target=0.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: distance=0.00m -> (27.958803, 76.657221)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Tower 0 at 0.00m: coordinates=(27.958803, 76.657221)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Placed tower 0 at distance 0.00m (lat=27.958802921479418, lon=76.65722082474304)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Attempting next tower at distance 450.00m (route_end=2960.04m)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=450.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=2987.81m, target=450.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: distance=450.00m -> (27.959888, 76.661635)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=450.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=2987.81m, target=450.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: distance=450.00m -> (27.959888, 76.661635)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Tower 1 at 450.00m: coordinates=(27.959888, 76.661635)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Placed tower 1 at distance 450.00m (lat=27.9598881349148, lon=76.66163475763071)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Attempting next tower at distance 900.00m (route_end=2960.04m)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=900.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=2987.81m, target=900.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: distance=900.00m -> (27.962188, 76.664714)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=900.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=2987.81m, target=900.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: distance=900.00m -> (27.962188, 76.664714)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Tower 2 at 900.00m: coordinates=(27.962188, 76.664714)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Placed tower 2 at distance 900.00m (lat=27.96218751314375, lon=76.66471439504947)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Attempting next tower at distance 1350.00m (route_end=2960.04m)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=1350.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=2987.81m, target=1350.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: distance=1350.00m -> (27.966052, 76.666074)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=1350.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=2987.81m, target=1350.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: distance=1350.00m -> (27.966052, 76.666074)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Tower 3 at 1350.00m: coordinates=(27.966052, 76.666074)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Placed tower 3 at distance 1350.00m (lat=27.96605224086016, lon=76.66607380574168)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Attempting next tower at distance 1800.00m (route_end=2960.04m)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=1800.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=2987.81m, target=1800.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: distance=1800.00m -> (27.968135, 76.669632)
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=1800.00m
+2025-12-24 15:04:06,347 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=2987.81m, target=1800.00m
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: distance=1800.00m -> (27.968135, 76.669632)
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Tower 4 at 1800.00m: coordinates=(27.968135, 76.669632)
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Placed tower 4 at distance 1800.00m (lat=27.96813544082935, lon=76.66963166317252)
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Attempting next tower at distance 2250.00m (route_end=2960.04m)
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=2250.00m
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=2987.81m, target=2250.00m
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: distance=2250.00m -> (27.969466, 76.673744)
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=2250.00m
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=2987.81m, target=2250.00m
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: distance=2250.00m -> (27.969466, 76.673744)
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Tower 5 at 2250.00m: coordinates=(27.969466, 76.673744)
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Placed tower 5 at distance 2250.00m (lat=27.96946594706542, lon=76.67374449963457)
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Attempting next tower at distance 2700.00m (route_end=2960.04m)
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=2700.00m
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=2987.81m, target=2700.00m
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: distance=2700.00m -> (27.965453, 76.674339)
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=2700.00m
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=2987.81m, target=2700.00m
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: distance=2700.00m -> (27.965453, 76.674339)
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Tower 6 at 2700.00m: coordinates=(27.965453, 76.674339)
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Placed tower 6 at distance 2700.00m (lat=27.96545320197232, lon=76.67433894913992)
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Attempting next tower at distance 3150.00m (route_end=2960.04m)
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=2960.04m
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=2987.81m, target=2960.04m
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Polyline walker: distance=2960.04m -> (27.963134, 76.674682)
+2025-12-24 15:04:06,354 - auto_spotter - INFO - Placed final tower at route end: 2960.04m
+2025-12-24 15:04:06,354 - backend.services.route_optimizer - INFO - Auto-spotter placed 8 towers along route
+2025-12-24 15:04:06,354 - backend.services.route_optimizer - INFO - Classified 8 towers based on route geometry
+2025-12-24 15:37:02,232 - backend.services.location_deriver - INFO - Auto-detected location: india (country: IN), standard: IS
+2025-12-24 15:37:02,232 - auto_spotter - INFO - Auto-spotter: route_end_distance=3013.29m, terrain_profile_end=3013.29m, route_coordinates_count=5
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Starting tower placement: current_distance=0.00m, route_end=3013.29m, max_span=450.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=0.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=3028.17m, target=0.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: distance=0.00m -> (27.281272, 77.349002)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Tower 0 at 0.00m: coordinates=(27.281272, 77.349002)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Placed tower 0 at distance 0.00m (lat=27.28127162854831, lon=77.34900155016885)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Attempting next tower at distance 450.00m (route_end=3013.29m)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=450.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=3028.17m, target=450.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: distance=450.00m -> (27.285125, 77.350392)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=450.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=3028.17m, target=450.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: distance=450.00m -> (27.285125, 77.350392)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Tower 1 at 450.00m: coordinates=(27.285125, 77.350392)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Placed tower 1 at distance 450.00m (lat=27.285125193682873, lon=77.35039233554815)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Attempting next tower at distance 900.00m (route_end=3013.29m)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=900.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=3028.17m, target=900.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: distance=900.00m -> (27.288428, 77.352628)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=900.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=3028.17m, target=900.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: distance=900.00m -> (27.288428, 77.352628)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Tower 2 at 900.00m: coordinates=(27.288428, 77.352628)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Placed tower 2 at distance 900.00m (lat=27.288427873463927, lon=77.35262784778546)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Attempting next tower at distance 1350.00m (route_end=3013.29m)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=1350.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=3028.17m, target=1350.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: distance=1350.00m -> (27.290763, 77.356347)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=1350.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=3028.17m, target=1350.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: distance=1350.00m -> (27.290763, 77.356347)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Tower 3 at 1350.00m: coordinates=(27.290763, 77.356347)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Placed tower 3 at distance 1350.00m (lat=27.290762870354392, lon=77.35634720366193)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Attempting next tower at distance 1800.00m (route_end=3013.29m)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=1800.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=3028.17m, target=1800.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: distance=1800.00m -> (27.292330, 77.360391)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=1800.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=3028.17m, target=1800.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: distance=1800.00m -> (27.292330, 77.360391)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Tower 4 at 1800.00m: coordinates=(27.292330, 77.360391)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Placed tower 4 at distance 1800.00m (lat=27.29233028386765, lon=77.36039077396124)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Attempting next tower at distance 2250.00m (route_end=3013.29m)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=2250.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=3028.17m, target=2250.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: distance=2250.00m -> (27.292747, 77.364921)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=2250.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=3028.17m, target=2250.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: distance=2250.00m -> (27.292747, 77.364921)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Tower 5 at 2250.00m: coordinates=(27.292747, 77.364921)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Placed tower 5 at distance 2250.00m (lat=27.29274671130188, lon=77.3649205015933)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Attempting next tower at distance 2700.00m (route_end=3013.29m)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=2700.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=3028.17m, target=2700.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: distance=2700.00m -> (27.290226, 77.367256)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=2700.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=3028.17m, target=2700.00m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: distance=2700.00m -> (27.290226, 77.367256)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Tower 6 at 2700.00m: coordinates=(27.290226, 77.367256)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Placed tower 6 at distance 2700.00m (lat=27.29022571746155, lon=77.3672555152087)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Attempting next tower at distance 3150.00m (route_end=3013.29m)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processing 5 route coordinates for target_distance=3013.29m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: Processed 5 points, total distance=3028.17m, target=3013.29m
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Polyline walker: distance=3013.29m -> (27.287530, 77.368179)
+2025-12-24 15:37:02,246 - auto_spotter - INFO - Placed final tower at route end: 3013.29m
+2025-12-24 15:37:02,246 - backend.services.route_optimizer - INFO - Auto-spotter placed 8 towers along route
+2025-12-24 15:37:02,246 - backend.services.route_optimizer - INFO - Classified 8 towers based on route geometry

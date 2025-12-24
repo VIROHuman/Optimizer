@@ -17,6 +17,7 @@ def rebalance_spans(
     spotter: AutoSpotter,
     route_start_lat: Optional[float] = None,
     route_start_lon: Optional[float] = None,
+    route_coordinates: Optional[List[Dict[str, Any]]] = None,
 ) -> Tuple[List[TowerPosition], str, Optional[float]]:
     """
     Rebalance tower positions to ensure uniform span distribution.
@@ -101,9 +102,9 @@ def rebalance_spans(
         # Get elevation at this position
         elevation = spotter.interpolate_elevation(tower_x, terrain_profile)
         
-        # Get coordinates if available
+        # Get coordinates if available (using polyline walker for zigzag routes)
         lat, lon = spotter._get_coordinates_at_distance(
-            tower_x, terrain_profile, route_start_lat, route_start_lon
+            tower_x, terrain_profile, route_start_lat, route_start_lon, route_coordinates
         )
         
         # Create tower position
@@ -163,4 +164,5 @@ def rebalance_spans(
     
     # Rebalancing successful
     return rebalanced_towers, "balanced", balanced_span
+
 

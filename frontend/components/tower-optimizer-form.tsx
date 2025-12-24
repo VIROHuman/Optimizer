@@ -51,7 +51,8 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
     const needsWind = !hasRoute && !formData.wind
     const needsTerrain = !hasTerrainProfile && !formData.terrain
     
-    if (needsLocation || needsWind || needsTerrain || !formData.voltage || !formData.soil || !formData.tower) {
+    // Tower type is now automatic - no validation needed
+    if (needsLocation || needsWind || needsTerrain || !formData.voltage || !formData.soil) {
       if (needsLocation) {
         alert("Please either draw a route on the map or enter a project location")
       } else if (needsWind) {
@@ -327,21 +328,16 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
               </Select>
             </div>
 
+            {/* Tower Type is now automatically determined from route geometry - no user selection needed */}
             <div className="space-y-2">
-              <Label htmlFor="tower" className="text-foreground">
+              <Label className="text-foreground text-sm text-muted-foreground">
                 Tower Type
               </Label>
-              <Select value={formData.tower} onValueChange={(v) => updateField("tower", v)}>
-                <SelectTrigger className="bg-background border-input">
-                  <SelectValue placeholder="Select tower type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="suspension">Suspension</SelectItem>
-                  <SelectItem value="angle">Angle</SelectItem>
-                  <SelectItem value="tension">Tension</SelectItem>
-                  <SelectItem value="dead_end">Dead End</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="p-3 bg-muted/50 rounded-md border border-border">
+                <p className="text-sm text-muted-foreground">
+                  Tower types are automatically classified based on route geometry, deflection angles, and strain section containment rules.
+                </p>
+              </div>
             </div>
 
             <div className="space-y-2">

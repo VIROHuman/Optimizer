@@ -96,23 +96,11 @@ def generate_cost_context(
             "ROW component is moderate; primary costs are structural."
         )
     
-    # FIX 4: Add foundation classification disclaimer
-    interpretation_parts.append(
-        "Foundation costs are indicative and classification-based (not detailed design)."
-    )
-    
-    # FIX 7: Add terrain contribution note
-    interpretation_parts.append(
-        "Terrain complexity contributes to cost variance (±25-30% accuracy target)."
-    )
-    
     interpretation = " ".join(interpretation_parts)
     
     return CostContextResponse(
         cost_per_km=cost_per_km,
         primary_cost_drivers=drivers[:5],  # Top 5 drivers
         interpretation=interpretation,
-        foundation_uncertainty_note="Foundation costs are indicative and classification-based (not detailed design).",
-        terrain_contribution_note="Terrain complexity contributes to cost variance (±25-30% accuracy target).",
     )
 
