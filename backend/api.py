@@ -29,12 +29,14 @@ from backend.models.canonical import (
     CurrencyContextResponse
 )
 from backend.models.geo_context import GeographicResolutionResponse
+from backend.models.validation_request import ValidationRequest, ValidationResponse, SpanStatus
 
 # Rebuild Pydantic models to resolve forward references
 CanonicalOptimizationResult.model_rebuild()
 from backend.services.currency_resolver import resolve_currency
 from backend.services.optimizer_service import run_optimization
 from backend.services.route_optimizer import optimize_route
+from backend.services.design_validator import validate_design
 
 # Configure logging to file and console
 log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
@@ -321,6 +323,68 @@ async def optimize_route_endpoint(request: RouteOptimizationRequest):
         print(f"ERROR in route optimization: {error_detail}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Route optimization failed: {error_detail}")
+
+
+@app.post("/validate-design", response_model=ValidationResponse)
+async def validate_design_endpoint(request: ValidationRequest):
+    """
+    Real-time design validation endpoint.
+    
+    Validates tower positions and spans when towers are moved.
+    Checks obstacle clearance and electrical clearance requirements.
+    
+    Args:
+        request: ValidationRequest with updated tower positions
+        
+    Returns:
+        ValidationResponse with span statuses and violations
+    """
+    try:
+        # Convert request to dict format
+        towers_dict = [
+            {
+                'index': t.index,
+                'latitude': t.latitude,
+                'longitude': t.longitude,
+                'total_height_m': t.total_height_m,
+                'distance_along_route_m': t.distance_along_route_m,
+            }
+            for t in request.towers
+        ]
+        
+        # Convert geo_context
+        geo_context_dict = None
+        if request.geo_context:
+            geo_context_dict = {
+                'country_code': request.geo_context.country_code,
+                'country_name': request.geo_context.country_name,
+                'state': request.geo_context.state,
+            }
+        
+        # Run validation
+        overall_status, span_statuses = validate_design(
+            towers=towers_dict,
+            spans=request.spans,
+            voltage_kv=request.voltage_kv,
+            geo_context=geo_context_dict,
+            route_coordinates=request.route_coordinates,
+            terrain_profile=request.terrain_profile,
+        )
+        
+        violations_count = sum(1 for s in span_statuses if s.status == 'VIOLATION')
+        
+        return ValidationResponse(
+            overall_status=overall_status,
+            span_statuses=span_statuses,
+            violations_count=violations_count,
+        )
+        
+    except Exception as e:
+        import traceback
+        error_detail = str(e)
+        print(f"ERROR in design validation: {error_detail}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Design validation failed: {error_detail}")
 
 
 if __name__ == "__main__":

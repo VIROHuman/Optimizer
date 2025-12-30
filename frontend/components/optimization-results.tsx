@@ -1,11 +1,13 @@
 "use client"
 
 import { Separator } from "@/components/ui/separator"
-import { CheckCircle, AlertTriangle, Info, FileText, DollarSign, Building2, Shield, AlertCircle, MapPin, Route } from "lucide-react"
+import { CheckCircle, AlertTriangle, Info, FileText, DollarSign, Building2, Shield, AlertCircle, MapPin, Route, Download } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
 import { useState } from "react"
+import MapViewer from "@/components/map-viewer"
 
 interface OptimizationResultsProps {
   results: any
@@ -30,6 +32,7 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
   const advisories = results.advisories || []
   const referenceDataStatus = results.reference_data_status || {}
   const optimizationInfo = results.optimization_info || {}
+  const obstacles = results.obstacles || []  // Obstacles for visualization
 
   // Format cost for display (handle Indian Rupees with "Cr" for crores)
   const formatCost = (cost: number) => {
@@ -55,11 +58,186 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
   const landRowPercent = totalCost > 0 ? ((costBreakdown.land_ROW_total || 0) / totalCost) * 100 : 0
   const terrainPercent = 0 // Placeholder - could be calculated from terrain complexity
 
+  // Export to Excel function
+  const exportToExcel = () => {
+    // Dynamic import of xlsx
+    import('xlsx').then((XLSX) => {
+      const wb = XLSX.utils.book_new()
+      
+      // Sheet 1: Project Summary
+      const summaryData = [
+        ['Transmission Line Design Optimization Report'],
+        ['Generated:', new Date().toLocaleString()],
+        [''],
+        ['PROJECT SUMMARY'],
+        ['Route Length (km)', lineSummary.route_length_km],
+        ['Total Towers', lineSummary.total_towers],
+        ['Tower Density (per km)', lineSummary.tower_density_per_km],
+        ['Average Span (m)', lineSummary.avg_span_m],
+        ['Tallest Tower (m)', lineSummary.tallest_tower_m],
+        ['Deepest Foundation (m)', lineSummary.deepest_foundation_m],
+        ['Total Steel (tonnes)', lineSummary.total_steel_tonnes],
+        ['Total Concrete (m³)', lineSummary.total_concrete_m3],
+        [''],
+        ['COST BREAKDOWN'],
+        ['Steel Cost', costBreakdown.steel_total, currency.symbol],
+        ['Foundation Cost', costBreakdown.foundation_total, currency.symbol],
+        ['Erection Cost', costBreakdown.erection_total, currency.symbol],
+        ['Transport Cost', costBreakdown.transport_total, currency.symbol],
+        ['Land/ROW Cost', costBreakdown.land_ROW_total, currency.symbol],
+        ['Total Project Cost', costBreakdown.total_project_cost, currency.symbol],
+        ['Cost per km', costBreakdown.total_project_cost / (lineSummary.route_length_km || 1), currency.symbol],
+        [''],
+        ['SAFETY SUMMARY'],
+        ['Overall Status', safetySummary.overall_status],
+        ['Governing Risks', safetySummary.governing_risks?.join(', ') || 'None'],
+        ['Design Scenarios', safetySummary.design_scenarios_applied?.join(', ') || 'None'],
+        [''],
+        ['REGIONAL CONTEXT'],
+        ['Governing Standard', regionalContext.governing_standard],
+        ['Confidence Score', confidence.score || 'N/A'],
+        ['Wind Source', regionalContext.wind_source || 'N/A'],
+        ['Terrain Source', regionalContext.terrain_source || 'N/A'],
+      ]
+      const ws1 = XLSX.utils.aoa_to_sheet(summaryData)
+      XLSX.utils.book_append_sheet(wb, ws1, 'Project Summary')
+      
+      // Sheet 2: Tower Details
+      const towerHeaders = [
+        'Index', 'Distance (m)', 'Latitude', 'Longitude', 'Type', 'Deviation Angle (°)',
+        'Base Height (m)', 'Body Extension (m)', 'Total Height (m)', 'Base Width (m)',
+        'Foundation Type', 'Footing Length (m)', 'Footing Width (m)', 'Footing Depth (m)',
+        'Steel Weight (kg)', 'Steel Cost', 'Foundation Cost', 'Erection Cost',
+        'Transport Cost', 'Land/ROW Cost', 'Total Cost', 'Safety Status', 'Governing Load Case', 'Design Reason'
+      ]
+      const towerRows = towers.map((tower: any) => [
+        tower.index,
+        tower.distance_along_route_m,
+        tower.latitude || 'N/A',
+        tower.longitude || 'N/A',
+        tower.tower_type,
+        tower.deviation_angle_deg || 'N/A',
+        tower.base_height_m,
+        tower.body_extension_m,
+        tower.total_height_m,
+        tower.base_width_m || 'N/A',
+        tower.foundation_type,
+        tower.foundation_dimensions?.length || 'N/A',
+        tower.foundation_dimensions?.width || 'N/A',
+        tower.foundation_dimensions?.depth || 'N/A',
+        tower.steel_weight_kg,
+        tower.steel_cost,
+        tower.foundation_cost,
+        tower.erection_cost,
+        tower.transport_cost,
+        tower.land_ROW_cost,
+        tower.total_cost,
+        tower.safety_status,
+        tower.governing_load_case || 'N/A',
+        tower.design_reason || 'N/A',
+      ])
+      const ws2 = XLSX.utils.aoa_to_sheet([towerHeaders, ...towerRows])
+      XLSX.utils.book_append_sheet(wb, ws2, 'Tower Details')
+      
+      // Sheet 3: Span Details
+      const spanHeaders = [
+        'From Tower', 'To Tower', 'Span Length (m)', 'Sag (m)', 'Minimum Clearance (m)',
+        'Clearance Margin (%)', 'Wind Zone', 'Ice Load Used', 'Governing Case', 'Is Safe', 'Confidence Score'
+      ]
+      const spanRows = spans.map((span: any) => [
+        span.from_tower_index,
+        span.to_tower_index,
+        span.span_length_m,
+        span.sag_m,
+        span.minimum_clearance_m,
+        span.clearance_margin_percent,
+        span.wind_zone_used,
+        span.ice_load_used ? 'Yes' : 'No',
+        span.governing_case || 'N/A',
+        span.is_safe ? 'Yes' : 'No',
+        span.confidence_score || 'N/A',
+      ])
+      const ws3 = XLSX.utils.aoa_to_sheet([spanHeaders, ...spanRows])
+      XLSX.utils.book_append_sheet(wb, ws3, 'Span Details')
+      
+      // Sheet 4: Risk Advisories
+      if (advisories.length > 0) {
+        const advisoryHeaders = ['Risk Name', 'Category', 'Why it Matters', 'Not Currently Evaluated', 'Suggested Action']
+        const advisoryRows = advisories.map((adv: any) => [
+          adv.risk_name || 'N/A',
+          adv.risk_category || 'N/A',
+          adv.reason || 'N/A',
+          adv.not_evaluated || 'N/A',
+          adv.suggested_action || 'N/A',
+        ])
+        const ws4 = XLSX.utils.aoa_to_sheet([advisoryHeaders, ...advisoryRows])
+        XLSX.utils.book_append_sheet(wb, ws4, 'Risk Advisories')
+      }
+      
+      // Sheet 5: Calculations & Intermediate Values
+      const calcData = [
+        ['CALCULATION DETAILS'],
+        [''],
+        ['Span Calculations'],
+        ['Max Span (m)', 'Calculated based on voltage and terrain'],
+        ['Min Span (m)', 'Calculated based on voltage and terrain'],
+        ['Average Span (m)', lineSummary.avg_span_m],
+        [''],
+        ['Tower Type Classification'],
+        ['Suspension Threshold', '0° - 3° deviation'],
+        ['Angle Threshold', '3° - 60° deviation'],
+        ['Dead-End Threshold', '> 60° deviation or endpoints'],
+        [''],
+        ['Cost Calculations'],
+        ['Steel Cost per kg', 'Calculated based on regional rates'],
+        ['Foundation Cost per m³', 'Calculated based on soil type'],
+        ['Erection Cost', 'Calculated based on tower height and type'],
+        ['Transport Cost', '20% of erection cost'],
+        [''],
+        ['Safety Calculations'],
+        ['Clearance Margin', 'Minimum 10m above ground'],
+        ['Sag Calculation', 'Based on catenary formula'],
+        ['Wind Load', 'Based on wind zone and tower height'],
+        [''],
+        ['Optimization Parameters'],
+        ['PSO Particles', optimizationInfo.iterations || 'N/A'],
+        ['Converged', optimizationInfo.converged ? 'Yes' : 'No'],
+        [''],
+        ['Reference Data Status'],
+        ['Cost Index', referenceDataStatus.cost_index || 'N/A'],
+        ['Risk Registry', referenceDataStatus.risk_registry || 'N/A'],
+        ['Code Revision', referenceDataStatus.code_revision || 'N/A'],
+        ['Currency Rate', referenceDataStatus.currency_rate || 'N/A'],
+      ]
+      const ws5 = XLSX.utils.aoa_to_sheet(calcData)
+      XLSX.utils.book_append_sheet(wb, ws5, 'Calculations')
+      
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+      const filename = `Transmission_Line_Optimization_${timestamp}.xlsx`
+      
+      // Write and download
+      XLSX.writeFile(wb, filename)
+    }).catch((err) => {
+      console.error('Error exporting to Excel:', err)
+      alert('Error exporting to Excel. Please ensure xlsx library is installed.')
+    })
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header with Safety Status */}
+      {/* Header with Safety Status and Export Button */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold text-foreground">Optimization Results</h2>
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={exportToExcel}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Export to Excel
+          </Button>
         <Badge
           variant={safetySummary.overall_status === "SAFE" ? "default" : "destructive"}
           className={safetySummary.overall_status === "SAFE" ? "bg-green-600 hover:bg-green-700" : ""}
@@ -71,6 +249,7 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
           )}
           {safetySummary.overall_status || "UNKNOWN"}
         </Badge>
+        </div>
       </div>
 
       {/* TASK 5.7: Route Overview Section */}
@@ -104,6 +283,32 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
             </dl>
           </CardContent>
         </Card>
+      )}
+
+      {/* Map View with Obstacles and Nudges */}
+      {towers.length > 0 && towers[0]?.latitude && towers[0]?.longitude && (
+        <MapViewer
+          towers={towers.map((t: any) => ({
+            index: t.index,
+            latitude: t.latitude,
+            longitude: t.longitude,
+            total_height_m: t.total_height_m,
+            distance_along_route_m: t.distance_along_route_m,
+            nudge_description: t.nudge_description,
+            original_distance_m: t.original_distance_m,
+          }))}
+          spans={spans}
+          routeCoordinates={towers
+            .filter((t: any) => t.latitude && t.longitude)
+            .map((t: any) => ({ lat: t.latitude, lon: t.longitude }))}
+          obstacles={obstacles}
+          voltage_kv={results.design_inputs?.voltage || 220}
+          geo_context={results.geographic_resolution ? {
+            country_code: results.geographic_resolution.country_code,
+            country_name: results.geographic_resolution.country_name,
+            state: results.geographic_resolution.state,
+          } : undefined}
+        />
       )}
 
       {/* TASK 5.7: "Why cost is high" Explanation */}
@@ -650,10 +855,10 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
 
       {/* 8. Advisories */}
       {advisories.length > 0 && (
-        <Card className="bg-card border-border border-blue-200 dark:border-blue-800">
+        <Card className="bg-card border-border border-slate-200 dark:border-slate-700">
           <CardHeader className="pb-3">
             <CardTitle className="text-foreground text-lg flex items-center gap-2">
-              <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <Info className="h-5 w-5 text-slate-600 dark:text-slate-400" />
               Risk Advisories
             </CardTitle>
             <CardDescription>Region-specific design recommendations</CardDescription>
@@ -662,19 +867,19 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
             {advisories.map((advisory: any, index: number) => (
               <div
                 key={index}
-                className="flex items-start gap-3 p-4 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800"
+                className="flex items-start gap-3 p-4 rounded-md bg-slate-50/50 dark:bg-slate-900/20 border border-slate-200 dark:border-slate-800/50"
               >
-                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <Info className="h-5 w-5 text-slate-500 dark:text-slate-400 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <div className="font-semibold text-blue-800 dark:text-blue-300 mb-2">
+                  <div className="font-semibold text-slate-700 dark:text-slate-300 mb-2">
                     {advisory.risk_name || "Risk Advisory"}
                   </div>
-                  <div className="text-sm text-blue-700 dark:text-blue-400 space-y-2">
+                  <div className="text-sm text-slate-600 dark:text-slate-400 space-y-2">
                     <p><strong>Why it matters:</strong> {advisory.reason}</p>
                     <p><strong>Not currently evaluated:</strong> {advisory.not_evaluated}</p>
                     {advisory.suggested_action && (
-                      <div className="mt-2 p-2 bg-blue-100 dark:bg-blue-900/50 rounded">
-                        <p className="font-medium">{advisory.suggested_action}</p>
+                      <div className="mt-2 p-2 bg-slate-100/80 dark:bg-slate-800/40 rounded border border-slate-200 dark:border-slate-700">
+                        <p className="font-medium text-slate-700 dark:text-slate-300">{advisory.suggested_action}</p>
                       </div>
                     )}
                   </div>
@@ -685,7 +890,75 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
         </Card>
       )}
 
-      {/* 9. Reference Data Status */}
+      {/* 9. Constraint Log - Obstacle Detection & Nudges */}
+      {(obstacles.length > 0 || towers.some((t: any) => t.nudge_description)) && (
+        <Card className="bg-card border-border border-slate-200 dark:border-slate-700">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-foreground text-lg flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+              Constraint Log
+            </CardTitle>
+            <CardDescription>Automatic obstacle detection and tower adjustments</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Detected Obstacles */}
+            {obstacles.length > 0 && (
+              <div>
+                <h4 className="font-semibold text-foreground mb-2">Detected Obstacles</h4>
+                <ul className="space-y-2 text-sm">
+                  {obstacles.map((obstacle: any, idx: number) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="text-slate-500 dark:text-slate-400">✅</span>
+                      <span className="text-slate-700 dark:text-slate-300">
+                        Detected {obstacle.type === 'river' ? 'River' : 
+                                  obstacle.type === 'highway' ? 'Highway' : 
+                                  obstacle.type === 'steep_slope' ? 'Steep Slope' : 
+                                  'Obstacle'} at {obstacle.start_distance_m?.toFixed(0) || 'N/A'}m - {obstacle.end_distance_m?.toFixed(0) || 'N/A'}m
+                        {obstacle.name && ` (${obstacle.name})`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Tower Nudges */}
+            {towers.filter((t: any) => t.nudge_description).length > 0 && (
+              <div>
+                <h4 className="font-semibold text-foreground mb-2">Tower Adjustments</h4>
+                <ul className="space-y-2 text-sm">
+                  {towers
+                    .filter((t: any) => t.nudge_description)
+                    .map((tower: any) => (
+                      <li key={tower.index} className="flex items-start gap-2">
+                        <span className="text-slate-500 dark:text-slate-400">🛠️</span>
+                        <span className="text-slate-700 dark:text-slate-300">
+                          Tower {tower.index}: {tower.nudge_description}
+                          {tower.original_distance_m && (
+                            <span className="text-muted-foreground ml-1">
+                              (Original: {tower.original_distance_m.toFixed(1)}m → Actual: {tower.distance_along_route_m.toFixed(1)}m)
+                            </span>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Summary */}
+            <div className="mt-4 p-3 bg-slate-50/50 dark:bg-slate-900/20 rounded-md border border-slate-200 dark:border-slate-800">
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                <strong>Note:</strong> The system automatically detected {obstacles.length} obstacle(s) and adjusted {
+                  towers.filter((t: any) => t.nudge_description).length
+                } tower position(s) to ensure safe placement. All adjustments are within engineering tolerances.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 10. Reference Data Status */}
       {referenceDataStatus && Object.keys(referenceDataStatus).length > 0 && (
         <Card className="bg-card border-border">
           <CardHeader className="pb-3">

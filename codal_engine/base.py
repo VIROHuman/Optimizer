@@ -7,8 +7,9 @@ no cost considerations.
 """
 
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import Tuple, Optional, List, Dict, Any
 from data_models import TowerDesign, OptimizationInputs, SafetyCheckResult, FoundationType
+from backend.services.clearance_rules import ClearanceResolver
 
 
 class CodalEngine(ABC):
@@ -306,37 +307,50 @@ class CodalEngine(ABC):
     def _check_electrical_clearance(
         self,
         design: TowerDesign,
-        inputs: OptimizationInputs
+        inputs: OptimizationInputs,
+        obstacles: Optional[List[Dict[str, Any]]] = None,
+        distance_along_route: Optional[float] = None
     ) -> Tuple[bool, str]:
         """
         Check electrical clearance requirements under maximum sag conditions.
+        
+        Uses context-aware clearance that adapts to:
+        - Global Standard (Country/Region)
+        - Line Voltage
+        - Obstacle Type (road, railway, river, power_line)
         
         This is a HARD FAILURE check. Designs with insufficient clearance
         are rejected as UNSAFE.
         
         Args:
             design: TowerDesign to check
-            inputs: OptimizationInputs with voltage level
+            inputs: OptimizationInputs with voltage level and governing standard
+            obstacles: Optional list of obstacles with start_distance_m, end_distance_m, type
+            distance_along_route: Optional distance along route for obstacle-specific clearance
             
         Returns:
             Tuple of (is_feasible, violation_message)
             Returns False if clearance violation (hard failure)
         """
-        # Required minimum clearance by voltage level (ground clearance)
-        required_clearance_by_voltage = {
-            132: 6.1,   # m
-            220: 7.0,   # m
-            400: 8.5,   # m
-            765: 11.0,  # m
-            900: 12.5,  # m
-        }
-        
-        # Find required clearance for voltage level
         voltage = inputs.voltage_level
-        required_clearance = 6.1  # Default for lower voltages
-        for v_level, clearance in sorted(required_clearance_by_voltage.items()):
-            if voltage >= v_level:
-                required_clearance = clearance
+        
+        # Get standard code from inputs
+        standard_code = 'IEC'  # Default fallback
+        standard_name = 'IEC'  # For error messages
+        if inputs.governing_standard:
+            standard_str = inputs.governing_standard.value if hasattr(inputs.governing_standard, 'value') else str(inputs.governing_standard)
+            standard_code = ClearanceResolver.STANDARD_TO_RULE_CODE.get(standard_str, 'IEC')
+            standard_name = standard_str  # Use original standard name for display
+        
+        # Create clearance resolver with context-aware rules
+        resolver = ClearanceResolver(standard_code, voltage)
+        
+        # Get required clearance (context-aware, considers obstacles if provided)
+        if distance_along_route is not None and obstacles:
+            required_clearance = resolver.get_required_clearance(distance_along_route, obstacles)
+        else:
+            # Use default clearance if no obstacles or distance provided
+            required_clearance = resolver.get_required_clearance(0.0, None)
         
         # Sag allowance based on voltage and span length
         sag_allowance = self._get_sag_allowance(voltage, design.span_length)
@@ -347,11 +361,26 @@ class CodalEngine(ABC):
         
         # Check if clearance violation (HARD FAILURE)
         if actual_clearance < required_clearance:
+            # Build specific error message
+            voltage_str = f"{voltage:.0f}kV" if voltage < 1000 else f"{voltage/1000:.1f}kV"
+            
+            # Determine obstacle context for error message
+            obstacle_context = ""
+            if distance_along_route is not None and obstacles:
+                for obstacle in obstacles:
+                    start_dist = obstacle.get('start_distance_m', 0)
+                    end_dist = obstacle.get('end_distance_m', 0)
+                    obstacle_type = obstacle.get('type', '')
+                    obstacle_name = obstacle.get('name', obstacle_type)
+                    
+                    if start_dist <= distance_along_route <= end_dist:
+                        obstacle_context = f" for {obstacle_name} ({obstacle_type})"
+                        break
+            
             return False, (
-                f"Electrical clearance violation under maximum sag conditions. "
-                f"Required clearance: {required_clearance:.2f} m, "
-                f"Actual clearance: {actual_clearance:.2f} m "
-                f"(tower height: {design.tower_height:.2f} m - sag allowance: {sag_allowance:.2f} m)"
+                f"VIOLATION: Clearance is {actual_clearance:.1f}m, but {voltage_str} {standard_name} Standard "
+                f"requires {required_clearance:.1f}m{obstacle_context}. "
+                f"(tower height: {design.tower_height:.2f}m - sag allowance: {sag_allowance:.2f}m)"
             )
         
         return True, ""

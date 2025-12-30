@@ -49,6 +49,8 @@ class TowerResponse(BaseModel):
     safety_status: TowerSafetyStatus = Field(..., description="SAFE or GOVERNING")
     governing_load_case: Optional[str] = Field(None, description="Governing load case if GOVERNING")
     design_reason: Optional[str] = Field(None, description="Explanation for tower type selection (e.g., 'Angle tower required for 12° route deviation')")
+    nudge_description: Optional[str] = Field(None, description="Description of any nudge applied (e.g., 'Shifted 12m fwd to avoid Highway')")
+    original_distance_m: Optional[float] = Field(None, description="Original proposed distance before nudge")
 
 
 class SpanResponse(BaseModel):
@@ -161,4 +163,5 @@ class CanonicalOptimizationResult(BaseModel):
     advisories: List[Dict[str, Any]] = Field(default_factory=list, description="Risk advisories")
     reference_data_status: Optional[Dict[str, Any]] = Field(None, description="Reference data versions")
     optimization_info: Optional[Dict[str, Any]] = Field(None, description="Optimization metadata")
+    obstacles: Optional[List[Dict[str, Any]]] = Field(default_factory=list, description="Detected obstacles (rivers, highways, steep slopes) for visualization")
 

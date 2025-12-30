@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "sonner"
 import "./globals.css"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
@@ -14,11 +15,10 @@ export const metadata: Metadata = {
   generator: "Larsen & Toubro",
   icons: {
     icon: [
-      { url: "/icon-light-32x32.png", media: "(prefers-color-scheme: light)" },
-      { url: "/icon-dark-32x32.png", media: "(prefers-color-scheme: dark)" },
-      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/L&T.png", media: "(prefers-color-scheme: light)" },
+      { url: "/lnt.png", media: "(prefers-color-scheme: dark)" },
     ],
-    apple: "/apple-icon.png",
+    apple: "/L&T.png",
   },
 }
 
@@ -34,6 +34,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           {children}
         </ThemeProvider>
+        <Toaster position="top-right" />
         <Analytics />
       </body>
     </html>

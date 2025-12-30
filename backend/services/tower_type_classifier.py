@@ -139,21 +139,21 @@ def apply_voltage_classification(
         )
         deviation_angle = max(0.0, min(180.0, deviation_angle))
     
-    # Simplified classification thresholds (as requested)
-    # deviation <= 3°: suspension
-    # deviation <= 30°: angle
-    # deviation > 30°: dead_end
+    # CRITICAL COST SAVE: Updated classification thresholds
+    # 0° - 3°: suspension
+    # 3° - 60°: angle (Treat turns up to 60° as Angle towers. Do NOT trigger Dead-End unless > 60°)
+    # > 60° OR Route Endpoints: dead_end
     if deviation_angle <= 3.0:
         return TowerType.SUSPENSION, (
             f"Straight alignment (Deviation {deviation_angle:.1f}° ≤ 3.0°)"
         )
-    elif deviation_angle <= 30.0:
+    elif deviation_angle <= 60.0:
         return TowerType.ANGLE, (
-            f"Moderate route bend ({deviation_angle:.1f}° between 3.0° and 30.0°)"
+            f"Route bend ({deviation_angle:.1f}° between 3.0° and 60.0°)"
         )
     else:
         return TowerType.DEAD_END, (
-            f"Sharp turn ({deviation_angle:.1f}° > 30.0°)"
+            f"Sharp turn ({deviation_angle:.1f}° > 60.0°)"
         )
 
 

@@ -24,11 +24,11 @@ export function Logo({ className = "", width = 48, height = 48 }: LogoProps) {
 
   return (
     <Image
-      src={resolvedTheme === "dark" ? "/logo-dark.svg" : "/logo-light.svg"}
+      src={resolvedTheme === "dark" ? "/lnt.png" : "/L&T.png"}
       alt="L&T Logo"
       width={width}
       height={height}
-      className={className}
+      className={`${className} object-contain`}
       priority
     />
   )

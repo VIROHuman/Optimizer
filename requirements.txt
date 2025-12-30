@@ -5,6 +5,10 @@ uvicorn[standard]>=0.24.0,<0.30.0
 # Data validation
 pydantic>=2.0.0,<3.0.0
 
+# Geographic utilities
+pycountry-convert>=0.7.2  # For country to continent code conversion (optional - has manual fallback)
+shapely>=2.0.0  # For geometric operations (intersection detection, buffering)
+
 # Optional: For better JSON serialization (if needed)
 # python-multipart>=0.0.6  # Required if using form data
 

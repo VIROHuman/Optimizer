@@ -42,6 +42,9 @@ class TowerPosition:
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     elevation_m: float = 0.0  # Ground elevation at tower location
+    design_type: Optional[str] = None  # 'anchor' or 'suspension' (set by section-based placer)
+    nudge_description: Optional[str] = None  # Description of any nudge applied (e.g., 'Shifted 12m fwd to avoid Highway')
+    original_distance_m: Optional[float] = None  # Original proposed distance before nudge
 
 
 class AutoSpotter:

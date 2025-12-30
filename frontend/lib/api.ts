@@ -115,3 +115,49 @@ export function normalizePayload(formData: any) {
   return payload
 }
 
+/**
+ * Validate design after tower movement
+ */
+export async function validateDesign(payload: {
+  towers: Array<{
+    index: number
+    latitude: number
+    longitude: number
+    total_height_m: number
+    distance_along_route_m?: number
+  }>
+  spans: Array<{
+    from_tower_index: number
+    to_tower_index: number
+    span_length_m: number
+  }>
+  voltage_kv: number
+  geo_context?: {
+    country_code?: string
+    country_name?: string
+    state?: string
+  }
+  route_coordinates?: Array<{ lat: number; lon: number }>
+  terrain_profile?: Array<{ distance_m: number; elevation_m: number }>
+}) {
+  const res = await fetch("http://localhost:8000/validate-design", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    let errorMessage = `HTTP error! status: ${res.status}`
+    try {
+      const errorData = await res.json()
+      errorMessage = errorData.detail || errorMessage
+    } catch {
+      const errorText = await res.text()
+      errorMessage = errorText || errorMessage
+    }
+    throw new Error(errorMessage)
+  }
+
+  return res.json()
+}
+

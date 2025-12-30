@@ -11,16 +11,24 @@ CRITICAL PRINCIPLES:
 - PER-TOWER cost only (not per-circuit km)
 
 Cost components:
-- Steel (tower structure) - regional rates
+- Steel (tower structure) - regional rates from market_rates.py
 - Foundation (concrete + excavation) - 4 footings per tower
 - Transport & Erection - proportional to steel cost
-- Regional adjustment factor
+- Regional adjustment factor from market_rates.py
 
 THIS IS A DECISION-SUPPORT COST MODEL, NOT A CONTRACT BOQ.
 """
 
-from typing import Tuple
+from typing import Tuple, Optional
 from data_models import TowerDesign, OptimizationInputs, TerrainType, SoilCategory
+from backend.data.market_rates import get_rates_for_country
+import logging
+
+# Get logger - will use root logger configuration from api.py
+logger = logging.getLogger(__name__)
+# Ensure logger level is at least INFO to show cost messages
+if logger.level == logging.NOTSET:
+    logger.setLevel(logging.INFO)
 
 
 # ============================================================================
@@ -164,7 +172,7 @@ TERRAIN_MULTIPLIERS = {
 
 def _get_region_from_location(project_location: str) -> str:
     """
-    Map project location to cost region.
+    Map project location to cost region (for backward compatibility with land rates).
     
     Args:
         project_location: Country/region name
@@ -216,6 +224,66 @@ def _get_region_from_location(project_location: str) -> str:
     return "default"
 
 
+def _get_country_code_from_location(project_location: str) -> str:
+    """
+    Extract ISO 3166-1 alpha-2 country code from project location string.
+    
+    Maps common location names to country codes for market_rates lookup.
+    
+    Args:
+        project_location: Country/region name (e.g., "India", "United States", "UK")
+        
+    Returns:
+        ISO 2-letter country code (e.g., "IN", "US", "GB") or "IN" as default
+    """
+    location_lower = project_location.lower().strip()
+    
+    # Country code mappings (common names to ISO codes)
+    country_mappings = {
+        # India
+        "india": "IN", "indian": "IN",
+        # USA
+        "usa": "US", "united states": "US", "united states of america": "US", "america": "US",
+        # Canada
+        "canada": "CA",
+        # Mexico
+        "mexico": "MX",
+        # UK
+        "uk": "GB", "united kingdom": "GB", "britain": "GB", "england": "GB",
+        # Europe
+        "germany": "DE", "france": "FR", "italy": "IT", "spain": "ES",
+        "netherlands": "NL", "belgium": "BE", "poland": "PL", "romania": "RO",
+        # Middle East
+        "uae": "AE", "united arab emirates": "AE", "dubai": "AE", "abu dhabi": "AE",
+        "saudi arabia": "SA", "qatar": "QA", "kuwait": "KW", "bahrain": "BH", "oman": "OM",
+        # Asia
+        "china": "CN", "japan": "JP", "south korea": "KR", "korea": "KR",
+        "vietnam": "VN", "indonesia": "ID", "thailand": "TH", "philippines": "PH",
+        "singapore": "SG", "malaysia": "MY",
+        # Africa
+        "south africa": "ZA", "egypt": "EG", "nigeria": "NG", "kenya": "KE",
+        # Australia / Oceania
+        "australia": "AU", "new zealand": "NZ",
+        # South America
+        "brazil": "BR", "argentina": "AR", "chile": "CL",
+        # Russia
+        "russia": "RU", "russian federation": "RU",
+    }
+    
+    # Direct match
+    if location_lower in country_mappings:
+        return country_mappings[location_lower]
+    
+    # Partial match (check if any keyword is in the location string)
+    for keyword, code in country_mappings.items():
+        if keyword in location_lower:
+            return code
+    
+    # Default to India if unknown
+    logger.warning(f"Unknown project location '{project_location}', defaulting to India (IN)")
+    return "IN"
+
+
 def calculate_cost(
     design: TowerDesign,
     inputs: OptimizationInputs
@@ -237,23 +305,31 @@ def calculate_cost(
         This function is deterministic and has no side effects.
         It does NOT modify the design or inputs.
     """
-    # Component 1: Steel cost (with regional multiplier)
-    steel_cost_base = _calculate_steel_cost(design, inputs)
-    region = _get_region_from_location(inputs.project_location)
-    steel_multiplier = REGIONAL_MULTIPLIERS.get(region, REGIONAL_MULTIPLIERS["default"])["steel"]
-    steel_cost = steel_cost_base * steel_multiplier
+    # Get market rates for country
+    country_code = _get_country_code_from_location(inputs.project_location)
+    rates = get_rates_for_country(country_code)
     
-    # Component 2: Foundation materials cost (with regional multiplier)
-    foundation_cost_base = _calculate_foundation_cost(design, inputs)
-    materials_multiplier = REGIONAL_MULTIPLIERS.get(region, REGIONAL_MULTIPLIERS["default"])["materials"]
-    foundation_cost = foundation_cost_base * materials_multiplier
+    # Print to console for visibility (uvicorn captures stdout)
+    print(f"[COST] Using Reference: {rates['description']}")
+    print(f"[COST]   Steel: ${rates['steel_price_usd']}/tonne, Cement: ${rates['cement_price_usd']}/m3")
+    print(f"[COST]   Labor Factor: {rates['labor_factor']}x, Logistics Factor: {rates['logistics_factor']}x")
+    # Also log via logger (goes to file and console if configured)
+    logger.info(f"Costing using Reference: {rates['description']}")
+    logger.info(f"   Steel: ${rates['steel_price_usd']}/tonne, Cement: ${rates['cement_price_usd']}/m3")
+    logger.info(f"   Labor Factor: {rates['labor_factor']}x, Logistics Factor: {rates['logistics_factor']}x")
     
-    # Component 3: Transport & Erection cost (with regional multipliers)
+    # Component 1: Steel cost (using market rates)
+    steel_cost_base = _calculate_steel_cost(design, inputs, rates['steel_price_usd'])
+    steel_cost = steel_cost_base  # Already includes market rate
+    
+    # Component 2: Foundation materials cost (using market rates)
+    foundation_cost_base = _calculate_foundation_cost(design, inputs, rates['cement_price_usd'])
+    foundation_cost = foundation_cost_base  # Already includes market rate
+    
+    # Component 3: Transport & Erection cost (using market rates)
     erection_cost_base = _calculate_erection_cost(steel_cost_base, inputs)  # Use base steel cost
-    labor_multiplier = REGIONAL_MULTIPLIERS.get(region, REGIONAL_MULTIPLIERS["default"])["labor"]
-    access_multiplier = REGIONAL_MULTIPLIERS.get(region, REGIONAL_MULTIPLIERS["default"])["access"]
-    # Erection has both labor and access components
-    erection_cost = erection_cost_base * labor_multiplier * access_multiplier
+    # Apply labor and logistics factors from market rates
+    erection_cost = erection_cost_base * rates['labor_factor'] * rates['logistics_factor']
     
     # Component 4: Land / Right-of-Way cost
     land_cost = _calculate_land_cost(design, inputs)
@@ -286,22 +362,31 @@ def calculate_cost_with_breakdown(
         - total_cost
         - region
     """
-    # Component 1: Steel cost (with regional multiplier)
-    steel_cost_base = _calculate_steel_cost(design, inputs)
-    region = _get_region_from_location(inputs.project_location)
-    steel_multiplier = REGIONAL_MULTIPLIERS.get(region, REGIONAL_MULTIPLIERS["default"])["steel"]
-    steel_cost = steel_cost_base * steel_multiplier
+    # Get market rates for country
+    country_code = _get_country_code_from_location(inputs.project_location)
+    rates = get_rates_for_country(country_code)
     
-    # Component 2: Foundation materials cost (with regional multiplier)
-    foundation_cost_base = _calculate_foundation_cost(design, inputs)
-    materials_multiplier = REGIONAL_MULTIPLIERS.get(region, REGIONAL_MULTIPLIERS["default"])["materials"]
-    foundation_cost = foundation_cost_base * materials_multiplier
+    # Print to console for visibility (uvicorn captures stdout)
+    print(f"[COST] Using Reference: {rates['description']}")
+    print(f"[COST]   Steel: ${rates['steel_price_usd']}/tonne, Cement: ${rates['cement_price_usd']}/m3")
+    print(f"[COST]   Labor Factor: {rates['labor_factor']}x, Logistics Factor: {rates['logistics_factor']}x")
+    # Also log via logger (goes to file and console if configured)
+    logger.info(f"Costing using Reference: {rates['description']}")
+    logger.info(f"   Steel: ${rates['steel_price_usd']}/tonne, Cement: ${rates['cement_price_usd']}/m3")
+    logger.info(f"   Labor Factor: {rates['labor_factor']}x, Logistics Factor: {rates['logistics_factor']}x")
     
-    # Component 3: Transport & Erection cost (with regional multipliers)
+    # Component 1: Steel cost (using market rates)
+    steel_cost_base = _calculate_steel_cost(design, inputs, rates['steel_price_usd'])
+    steel_cost = steel_cost_base  # Already includes market rate
+    
+    # Component 2: Foundation materials cost (using market rates)
+    foundation_cost_base = _calculate_foundation_cost(design, inputs, rates['cement_price_usd'])
+    foundation_cost = foundation_cost_base  # Already includes market rate
+    
+    # Component 3: Transport & Erection cost (using market rates)
     erection_cost_base = _calculate_erection_cost(steel_cost_base, inputs)  # Use base steel cost
-    labor_multiplier = REGIONAL_MULTIPLIERS.get(region, REGIONAL_MULTIPLIERS["default"])["labor"]
-    access_multiplier = REGIONAL_MULTIPLIERS.get(region, REGIONAL_MULTIPLIERS["default"])["access"]
-    erection_cost = erection_cost_base * labor_multiplier * access_multiplier
+    # Apply labor and logistics factors from market rates
+    erection_cost = erection_cost_base * rates['labor_factor'] * rates['logistics_factor']
     
     # Component 4: Land / Right-of-Way cost
     land_cost = _calculate_land_cost(design, inputs)
@@ -315,12 +400,13 @@ def calculate_cost_with_breakdown(
         "erection_cost": erection_cost,
         "land_cost": land_cost,
         "total_cost": total_cost,
-        "region": region,
-        "multipliers": {
-            "steel": steel_multiplier,
-            "materials": materials_multiplier,
-            "labor": labor_multiplier,
-            "access": access_multiplier,
+        "country_code": country_code,
+        "market_rates": {
+            "steel_price_usd": rates['steel_price_usd'],
+            "cement_price_usd": rates['cement_price_usd'],
+            "labor_factor": rates['labor_factor'],
+            "logistics_factor": rates['logistics_factor'],
+            "description": rates['description'],
         },
     }
     
@@ -329,7 +415,8 @@ def calculate_cost_with_breakdown(
 
 def _calculate_steel_cost(
     design: TowerDesign,
-    inputs: OptimizationInputs
+    inputs: OptimizationInputs,
+    steel_price_usd: float
 ) -> float:
     """
     Calculate steel cost for tower structure.
@@ -337,11 +424,12 @@ def _calculate_steel_cost(
     Uses lattice tower approximation:
     steel_weight_tonnes = k × tower_height × base_width
     
-    Where k = 0.10 (default lattice factor)
+    Where k = 0.035 (lattice factor)
     
     Args:
         design: TowerDesign
         inputs: OptimizationInputs
+        steel_price_usd: Steel price per tonne in USD (from market_rates)
         
     Returns:
         Steel cost in USD
@@ -369,17 +457,14 @@ def _calculate_steel_cost(
         ice_multiplier = 1.35  # 35% increase in steel weight for ice loading
         steel_weight_tonnes *= ice_multiplier
     
-    # Regional steel rate
-    region = _get_region_from_location(inputs.project_location)
-    steel_rate = REGIONAL_STEEL_RATES.get(region, REGIONAL_STEEL_RATES["default"])
-    
-    # Cost
-    return steel_weight_tonnes * steel_rate
+    # Cost using market rate
+    return steel_weight_tonnes * steel_price_usd
 
 
 def _calculate_foundation_cost(
     design: TowerDesign,
-    inputs: OptimizationInputs
+    inputs: OptimizationInputs,
+    cement_price_usd: float
 ) -> float:
     """
     Calculate foundation cost (concrete + excavation).
@@ -389,6 +474,7 @@ def _calculate_foundation_cost(
     Args:
         design: TowerDesign
         inputs: OptimizationInputs
+        cement_price_usd: Cement price per m³ in USD (from market_rates)
         
     Returns:
         Foundation cost in USD
@@ -403,8 +489,11 @@ def _calculate_foundation_cost(
     # Total concrete volume (4 footings)
     total_concrete_volume = 4.0 * single_footing_volume
     
-    # Concrete cost
-    concrete_cost = total_concrete_volume * CONCRETE_RATE_PER_M3
+    # Concrete cost - adjust base rate by cement price index
+    # Base rate $160/m³ adjusted by cement price (normalized to $150/m³ baseline)
+    base_concrete_rate = 160.0
+    adjusted_concrete_rate = base_concrete_rate * (cement_price_usd / 150.0)
+    concrete_cost = total_concrete_volume * adjusted_concrete_rate
     
     # Excavation volume (foundation + over-excavation)
     foundation_area = design.footing_length * design.footing_width
@@ -412,7 +501,7 @@ def _calculate_foundation_cost(
     excavation_volume_per_footing = foundation_area * design.footing_depth * over_excavation_factor
     total_excavation_volume = 4.0 * excavation_volume_per_footing
     
-    # Excavation cost
+    # Excavation cost (unchanged - uses fixed rate)
     excavation_cost = total_excavation_volume * EXCAVATION_RATE_PER_M3
     
     # Soil adjustment factor
@@ -478,7 +567,8 @@ def _calculate_land_cost(
     # Approximate tower land footprint (square base)
     footprint_area = design.base_width ** 2  # m²
     
-    # Regional land rate
+    # Regional land rate (still using old region mapping for land rates)
+    # TODO: Could add land rates to market_rates.py in future
     region = _get_region_from_location(inputs.project_location)
     land_rate = REGIONAL_LAND_RATES.get(region, REGIONAL_LAND_RATES["default"])
     

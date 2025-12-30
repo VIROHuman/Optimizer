@@ -6,6 +6,7 @@ Derives location and governing standard from route coordinates using reverse geo
 
 from typing import Dict, Any, Optional, Tuple, List
 import logging
+from backend.services.standard_resolver import resolve_standard
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ COUNTRY_CODE_TO_LOCATION: Dict[str, str] = {
     "NL": "netherlands",
     "BE": "belgium",
     "PL": "poland",
+    "RO": "romania",
     "AE": "uae",
     "SA": "saudi arabia",
     "QA": "qatar",
@@ -63,6 +65,7 @@ COUNTRY_CODE_TO_STANDARD: Dict[str, str] = {
     "NL": "EUROCODE",
     "BE": "EUROCODE",
     "PL": "EUROCODE",
+    "RO": "EUROCODE",  # Romania
     # Middle East
     "AE": "IEC",
     "SA": "IEC",
@@ -172,6 +175,10 @@ def reverse_geocode_simple(lat: float, lon: float) -> Optional[str]:
     if 41 <= lat <= 51 and -5 <= lon <= 10:
         return "FR"
     
+    # Romania: 43.5°N to 48.5°N, 20°E to 30°E
+    if 43.5 <= lat <= 48.5 and 20 <= lon <= 30:
+        return "RO"
+    
     # UAE: 22°N to 26°N, 51°E to 56°E
     if 22 <= lat <= 26 and 51 <= lon <= 56:
         return "AE"
@@ -186,7 +193,8 @@ def reverse_geocode_simple(lat: float, lon: float) -> Optional[str]:
     
     # Default: try to use a reverse geocoding API if available
     # For now, return None and let caller handle fallback
-    logger.warning(f"Could not determine country for coordinates: {lat}, {lon}")
+    # Use DEBUG level since system has fallbacks - this is not critical
+    logger.debug(f"Could not determine country for coordinates: {lat}, {lon} (using fallback)")
     return None
 
 
@@ -218,17 +226,23 @@ def derive_location_from_coordinates(
     # Reverse geocode to get country code
     country_code = reverse_geocode_simple(lat, lon)
     
-    if not country_code:
-        logger.warning(f"Could not determine country from coordinates: {lat}, {lon}")
-        return None, None, False
-    
-    # Map country code to location name
+    # Map country code to location name (for backward compatibility)
+    if country_code:
     location_name = COUNTRY_CODE_TO_LOCATION.get(country_code, DEFAULT_LOCATION)
+    else:
+        # Use default location if country cannot be determined
+        location_name = DEFAULT_LOCATION
+        logger.debug(f"Could not determine country from coordinates: {lat}, {lon} (using fallback)")
     
-    # Map country code to governing standard
-    governing_standard = COUNTRY_CODE_TO_STANDARD.get(country_code, DEFAULT_STANDARD)
+    # Use Universal Standard Resolver with cascade logic
+    # This will never fail - always returns a valid standard (falls back to IEC)
+    # Even if country_code is None, it will use WORLD_DEFAULT (IEC)
+    governing_standard = resolve_standard(country_code)
     
+    if country_code:
     logger.info(f"Auto-detected location: {location_name} (country: {country_code}), standard: {governing_standard}")
+    else:
+        logger.info(f"Country not detected, using fallback location: {location_name}, standard: {governing_standard}")
     
     return location_name, governing_standard, True
 

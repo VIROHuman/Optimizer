@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional
 from data_models import OptimizationInputs, TowerType
 from auto_spotter import AutoSpotter, TerrainPoint, TowerPosition, create_terrain_profile_from_coordinates
 from backend.services.optimizer_service import parse_input_dict, create_codal_engine, run_optimization
+from backend.services.section_based_placer import SectionBasedPlacer
 from pso_optimizer import PSOOptimizer
 from backend.models.canonical import (
     CanonicalOptimizationResult, TowerResponse, SpanResponse,
@@ -86,21 +87,22 @@ def optimize_route(
         # Create terrain profile from coordinates (fallback)
         terrain_profile_parsed = create_terrain_profile_from_coordinates(route_coordinates)
     
-    # Step 1: Auto-spotter places towers
-    spotter = AutoSpotter(
+    # Step 1: Section-based placer places towers using 4-phase algorithm
+    section_placer = SectionBasedPlacer(
         inputs=inputs,
         max_span_m=inputs.span_max,
         min_span_m=inputs.span_min,
     )
     
-    tower_positions = spotter.place_towers(
+    tower_positions, obstacles = section_placer.place_towers(
+        route_coordinates=route_coordinates,
         terrain_profile=terrain_profile_parsed,
         route_start_lat=route_coordinates[0].get("lat") if route_coordinates else None,
         route_start_lon=route_coordinates[0].get("lon") if route_coordinates else None,
-        route_coordinates=route_coordinates,  # CRITICAL: Pass route_coordinates for polyline walker
     )
     
-    logger.info(f"Auto-spotter placed {len(tower_positions)} towers along route")
+    logger.info(f"Section-based placer placed {len(tower_positions)} towers along route")
+    logger.info(f"Obstacle detector found {len(obstacles)} obstacles")
     
     # Step 1.5: Classify all towers based on geometry (automatic, no user selection)
     tower_classifications = classify_all_towers(tower_positions, inputs)
@@ -162,6 +164,7 @@ def optimize_route(
         project_length_km=project_length_km,
         row_mode=row_mode,
         terrain_profile=terrain_profile_parsed,
+        obstacles=obstacles,  # Pass obstacles for visualization
     )
 
 
@@ -213,6 +216,14 @@ def _create_tower_response(
     
     from backend.models.canonical import TowerResponse, TowerSafetyStatus
     
+    # Get nudge information from tower position
+    nudge_description = None
+    original_distance_m = None
+    if hasattr(tower_pos, 'nudge_description') and tower_pos.nudge_description:
+        nudge_description = tower_pos.nudge_description
+    if hasattr(tower_pos, 'original_distance_m') and tower_pos.original_distance_m:
+        original_distance_m = tower_pos.original_distance_m
+    
     return TowerResponse(
         index=tower_index,
         distance_along_route_m=tower_pos.distance_along_route_m,
@@ -241,6 +252,8 @@ def _create_tower_response(
         design_reason=design_reason,
         safety_status=TowerSafetyStatus.SAFE if result.is_safe else TowerSafetyStatus.GOVERNING,
         governing_load_case=result.safety_violations[0] if (hasattr(result, 'safety_violations') and result.safety_violations) else None,
+        nudge_description=nudge_description,
+        original_distance_m=original_distance_m,
     )
 
 
@@ -357,6 +370,7 @@ def _aggregate_route_results(
     wind_source: Optional[str] = None,
     terrain_source: Optional[str] = None,
     route_coordinates: Optional[List[Dict[str, Any]]] = None,
+    obstacles: Optional[List[Dict[str, Any]]] = None,
 ) -> CanonicalOptimizationResult:
     """Aggregate route-level results into canonical format."""
     from backend.models.canonical import (
@@ -573,5 +587,6 @@ def _aggregate_route_results(
         advisories=advisories,
         reference_data_status=reference_data_status,
         optimization_info=optimization_info,
+        obstacles=obstacles,  # Add obstacles for visualization
     )
 
