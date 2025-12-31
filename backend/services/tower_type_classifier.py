@@ -134,8 +134,8 @@ def apply_voltage_classification(
         import logging
         logger = logging.getLogger(__name__)
         logger.warning(
-            f"Invalid deviation angle {deviation_angle:.1f}° detected. "
-            f"Clamping to valid range [0-180°]"
+            f"Invalid deviation angle {deviation_angle:.1f}deg detected. "
+            f"Clamping to valid range [0-180deg]"
         )
         deviation_angle = max(0.0, min(180.0, deviation_angle))
     
@@ -145,15 +145,15 @@ def apply_voltage_classification(
     # > 60° OR Route Endpoints: dead_end
     if deviation_angle <= 3.0:
         return TowerType.SUSPENSION, (
-            f"Straight alignment (Deviation {deviation_angle:.1f}° ≤ 3.0°)"
+            f"Straight alignment (Deviation {deviation_angle:.1f}deg <= 3.0deg)"
         )
     elif deviation_angle <= 60.0:
         return TowerType.ANGLE, (
-            f"Route bend ({deviation_angle:.1f}° between 3.0° and 60.0°)"
+            f"Route bend ({deviation_angle:.1f}deg between 3.0deg and 60.0deg)"
         )
     else:
         return TowerType.DEAD_END, (
-            f"Sharp turn ({deviation_angle:.1f}° > 60.0°)"
+            f"Sharp turn ({deviation_angle:.1f}deg > 60.0deg)"
         )
 
 
@@ -233,8 +233,8 @@ def classify_all_towers(
                     import logging
                     logger = logging.getLogger(__name__)
                     logger.warning(
-                        f"Invalid deviation angle {deviation_angle:.1f}° for tower {i}. "
-                        f"Clamping to 180.0°"
+                        f"Invalid deviation angle {deviation_angle:.1f}deg for tower {i}. "
+                        f"Clamping to 180.0deg"
                     )
                     deviation_angle = 180.0
                 

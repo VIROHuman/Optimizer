@@ -297,6 +297,7 @@ def convert_to_canonical(
         total_project_cost=round(total_project_cost_calc, 2),
         currency=currency_dict["code"],
         currency_symbol=currency_dict["symbol"],
+        market_rates=cost_breakdown.get('market_rates'),  # Include market rates from cost calculation
     )
     
     # Safety summary

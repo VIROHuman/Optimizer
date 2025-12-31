@@ -442,6 +442,26 @@ def _aggregate_route_results(
     # Calculate total project cost
     total_project_cost = steel_total + foundation_total + erection_total + transport_total + land_ROW_total
     
+    # Get market rates from cost calculation (all towers use same rates based on location)
+    # Calculate a sample cost breakdown to extract market rates
+    market_rates = None
+    if inputs:
+        from cost_engine import calculate_cost_with_breakdown
+        from data_models import TowerDesign, FoundationType, TowerType
+        # Create a dummy design just to get market rates
+        dummy_design = TowerDesign(
+            tower_type=TowerType.SUSPENSION,
+            tower_height=40.0,
+            base_width=10.0,
+            span_length=350.0,
+            foundation_type=FoundationType.PAD_FOOTING,
+            footing_length=4.0,
+            footing_width=4.0,
+            footing_depth=3.0,
+        )
+        _, sample_cost_breakdown = calculate_cost_with_breakdown(dummy_design, inputs)
+        market_rates = sample_cost_breakdown.get('market_rates')
+    
     cost_breakdown = CostBreakdownResponse(
         steel_total=round(steel_total, 2),
         foundation_total=round(foundation_total, 2),
@@ -451,6 +471,7 @@ def _aggregate_route_results(
         total_project_cost=round(total_project_cost, 2),
         currency=currency_dict["code"],
         currency_symbol=currency_dict["symbol"],
+        market_rates=market_rates,  # Will be set from first tower's calculation
     )
     
     # Safety summary

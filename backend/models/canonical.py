@@ -94,6 +94,7 @@ class CostBreakdownResponse(BaseModel):
     total_project_cost: float = Field(..., description="Total project cost (sum of all components)")
     currency: str = Field(..., description="USD or INR")
     currency_symbol: str = Field(..., description="$ or ₹")
+    market_rates: Optional[Dict[str, Any]] = Field(None, description="Market rates used for cost calculation (steel_price_usd, cement_price_usd, labor_factor, logistics_factor, description)")
 
 
 class SafetySummaryResponse(BaseModel):

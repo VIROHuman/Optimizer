@@ -203,11 +203,12 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
         ['PSO Particles', optimizationInfo.iterations || 'N/A'],
         ['Converged', optimizationInfo.converged ? 'Yes' : 'No'],
         [''],
-        ['Reference Data Status'],
-        ['Cost Index', referenceDataStatus.cost_index || 'N/A'],
-        ['Risk Registry', referenceDataStatus.risk_registry || 'N/A'],
-        ['Code Revision', referenceDataStatus.code_revision || 'N/A'],
-        ['Currency Rate', referenceDataStatus.currency_rate || 'N/A'],
+        ['Market Rates Reference'],
+        ['Description', costBreakdown.market_rates?.description || 'N/A'],
+        ['Steel Price (USD/tonne)', costBreakdown.market_rates?.steel_price_usd || 'N/A'],
+        ['Cement Price (USD/m³)', costBreakdown.market_rates?.cement_price_usd || 'N/A'],
+        ['Labor Factor', costBreakdown.market_rates?.labor_factor || 'N/A'],
+        ['Logistics Factor', costBreakdown.market_rates?.logistics_factor || 'N/A'],
       ]
       const ws5 = XLSX.utils.aoa_to_sheet(calcData)
       XLSX.utils.book_append_sheet(wb, ws5, 'Calculations')
@@ -958,38 +959,61 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
         </Card>
       )}
 
-      {/* 10. Reference Data Status */}
-      {referenceDataStatus && Object.keys(referenceDataStatus).length > 0 && (
-        <Card className="bg-card border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-foreground text-lg">Reference Data Status</CardTitle>
-            <CardDescription>Versioned reference data used in calculations</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <dt className="text-muted-foreground">Cost Indices</dt>
-                <dd className="font-medium text-foreground">{referenceDataStatus.cost_index || "N/A"}</dd>
+      {/* 10. Market Rates Reference */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-foreground text-lg flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            Market Rates Reference
+          </CardTitle>
+          <CardDescription>Regional construction cost rates used for calculations</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {costBreakdown?.market_rates ? (
+            <div className="space-y-4">
+              <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
+                <p className="text-sm font-medium text-foreground mb-3">
+                  {costBreakdown.market_rates.description || "Market Rates"}
+                </p>
+                <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <dt className="text-muted-foreground">Steel Price</dt>
+                    <dd className="font-medium text-foreground">
+                      ${costBreakdown.market_rates.steel_price_usd?.toLocaleString() || "N/A"} / tonne
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Cement Price</dt>
+                    <dd className="font-medium text-foreground">
+                      ${costBreakdown.market_rates.cement_price_usd?.toLocaleString() || "N/A"} / m³
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Labor Factor</dt>
+                    <dd className="font-medium text-foreground">
+                      {costBreakdown.market_rates.labor_factor?.toFixed(1) || "N/A"}x
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Logistics Factor</dt>
+                    <dd className="font-medium text-foreground">
+                      {costBreakdown.market_rates.logistics_factor?.toFixed(1) || "N/A"}x
+                    </dd>
+                  </div>
+                </dl>
               </div>
-              <div>
-                <dt className="text-muted-foreground">Risk Registry</dt>
-                <dd className="font-medium text-foreground">{referenceDataStatus.risk_registry || "N/A"}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Code Revision</dt>
-                <dd className="font-medium text-foreground">{referenceDataStatus.code_revision || "N/A"}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">FX Reference</dt>
-                <dd className="font-medium text-foreground">{referenceDataStatus.currency_rate || "N/A"}</dd>
-              </div>
-            </dl>
-            <p className="text-xs text-muted-foreground mt-4 italic">
-              Note: Engineering calculations are NOT automatically modified by live data.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+              <p className="text-xs text-muted-foreground italic">
+                Source: Global Construction Cost Reference Library (Q4 2024 / Q1 2025 Estimates)
+              </p>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              <p>Market rates information is not available in the response.</p>
+              <p className="mt-2 text-xs">Debug: costBreakdown = {JSON.stringify(costBreakdown, null, 2)}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* 10. Optimization Metadata */}
       {optimizationInfo && Object.keys(optimizationInfo).length > 0 && (

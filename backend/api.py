@@ -38,20 +38,54 @@ from backend.services.optimizer_service import run_optimization
 from backend.services.route_optimizer import optimize_route
 from backend.services.design_validator import validate_design
 
-# Configure logging to file and console
+# ============================================================================
+# FORCE APPLICATION LOGS TO PIGGYBACK ONTO UVICORN'S OUTPUT STREAM
+# ============================================================================
+# 1. Get the root logger for your application
+# (Assuming your modules use 'backend' or 'auto_spotter' as logger names)
+# You can also just use logging.getLogger() to catch EVERYTHING.
+app_logger = logging.getLogger("backend") 
+app_logger.setLevel(logging.DEBUG) # Catch everything
+
+# 2. Create a handler that writes to the Standard Output (Console)
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.DEBUG)
+
+# 3. Define a format that stands out from Uvicorn's logs
+formatter = logging.Formatter(
+    '\033[96m%(asctime)s\033[0m - %(name)s - \033[93m%(levelname)s\033[0m - %(message)s',
+    datefmt='%H:%M:%S'
+)
+console_handler.setFormatter(formatter)
+
+# 4. Attach this handler to the root logger and specific modules
+logging.getLogger().addHandler(console_handler)
+logging.getLogger("auto_spotter").addHandler(console_handler)
+logging.getLogger("optimizer").addHandler(console_handler)
+
+# 5. Prevent double-logging if Uvicorn also catches it
+logging.getLogger("backend").propagate = False
+
+# Configure logging to file (in addition to console)
 log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
 os.makedirs(log_dir, exist_ok=True)
 log_file = os.path.join(log_dir, "backend.log")
 
-# Configure root logger
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5),  # 10MB per file, keep 5 backups
-        logging.StreamHandler()  # Also log to console
-    ]
-)
+# Create file handler for persistent logging
+file_handler = RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5)  # 10MB per file, keep 5 backups
+file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(file_formatter)
+
+# Add file handler to root logger
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+root_logger.addHandler(file_handler)
+
+# Get logger for this module
+logger = logging.getLogger(__name__)
+logger.info("=" * 60)
+logger.info("Backend API starting - Logging configured to file and console")
+logger.info("=" * 60)
 
 app = FastAPI(
     title="Transmission Tower Optimization API",
@@ -235,6 +269,7 @@ async def optimize(request: OptimizationRequest):
                 total_project_cost=13600.0,
                 currency="USD",
                 currency_symbol="$",
+                market_rates=None,  # Error case - no market rates available
             ),
             safety_summary=SafetySummaryResponse(
                 overall_status="SAFE",

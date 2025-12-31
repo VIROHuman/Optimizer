@@ -228,7 +228,7 @@ def derive_location_from_coordinates(
     
     # Map country code to location name (for backward compatibility)
     if country_code:
-    location_name = COUNTRY_CODE_TO_LOCATION.get(country_code, DEFAULT_LOCATION)
+        location_name = COUNTRY_CODE_TO_LOCATION.get(country_code, DEFAULT_LOCATION)
     else:
         # Use default location if country cannot be determined
         location_name = DEFAULT_LOCATION
@@ -240,7 +240,7 @@ def derive_location_from_coordinates(
     governing_standard = resolve_standard(country_code)
     
     if country_code:
-    logger.info(f"Auto-detected location: {location_name} (country: {country_code}), standard: {governing_standard}")
+        logger.info(f"Auto-detected location: {location_name} (country: {country_code}), standard: {governing_standard}")
     else:
         logger.info(f"Country not detected, using fallback location: {location_name}, standard: {governing_standard}")
     

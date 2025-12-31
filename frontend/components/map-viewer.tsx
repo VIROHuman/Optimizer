@@ -50,6 +50,7 @@ export default function MapViewer({
   const mapRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])
   const routeSourceRef = useRef<string | null>(null)
+  const mapboxglRef = useRef<any>(null)
 
   // "Truth" route line - connects towers directly (tower -> tower -> tower)
   // This proves the line passes through the marker positions
@@ -87,6 +88,9 @@ export default function MapViewer({
     const loadMap = async () => {
       try {
         const mapboxgl = (await import("mapbox-gl")).default
+        
+        // Store mapboxgl in ref for use in other useEffect hooks
+        mapboxglRef.current = mapboxgl
         
         // Set access token
         if (!mapboxgl.accessToken) {
@@ -263,8 +267,9 @@ export default function MapViewer({
               }
               
               const props = e.features[0]?.properties
-              if (props) {
+              if (props && mapboxglRef.current) {
                 const tooltip = `${props.name || props.type || 'Obstacle'}`
+                const mapboxgl = mapboxglRef.current
                 currentPopup = new mapboxgl.Popup({ closeOnClick: true })
                   .setLngLat(e.lngLat)
                   .setHTML(`<strong>${tooltip}</strong><br/>Type: ${props.type || 'unknown'}`)
@@ -297,6 +302,9 @@ export default function MapViewer({
 
           // Add tower markers - simple red dots on the line
           // Clear existing markers first
+          if (!mapboxglRef.current) return
+          const mapboxgl = mapboxglRef.current
+          
           markersRef.current.forEach(marker => marker.remove())
           markersRef.current = []
           
@@ -371,9 +379,10 @@ export default function MapViewer({
 
   // Update markers when towers change
   useEffect(() => {
-    if (!mapRef.current) return
+    if (!mapRef.current || !mapboxglRef.current) return
     
     const map = mapRef.current
+    const mapboxgl = mapboxglRef.current
     
     // Clear existing markers
     markersRef.current.forEach(marker => marker.remove())

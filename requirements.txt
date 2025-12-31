@@ -9,6 +9,9 @@ pydantic>=2.0.0,<3.0.0
 pycountry-convert>=0.7.2  # For country to continent code conversion (optional - has manual fallback)
 shapely>=2.0.0  # For geometric operations (intersection detection, buffering)
 
+# HTTP requests
+requests>=2.31.0  # For API calls (OSM Overpass API, geocoding services)
+
 # Optional: For better JSON serialization (if needed)
 # python-multipart>=0.0.6  # Required if using form data
 

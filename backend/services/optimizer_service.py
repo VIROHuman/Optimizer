@@ -416,7 +416,7 @@ def run_optimization(input_dict: Dict[str, Any]) -> Dict[str, Any]:
     bounds_violations = validate_design_bounds(result.best_design)
     if bounds_violations:
         # Log the violation (indicates optimizer bug)
-        print(f"WARNING: Optimizer returned design with bounds violations:")
+        print(f"WARNING: Optimizer returned design with bounds violations: {bounds_violations}")
         for violation in bounds_violations:
             print(f"  - {violation}")
         
