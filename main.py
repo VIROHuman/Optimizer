@@ -339,10 +339,10 @@ Example usage:
         if 'multipliers' in cost_breakdown:
             mult = cost_breakdown['multipliers']
             print(f"\n  Regional Multipliers ({cost_breakdown['region'].upper()}):")
-            print(f"    Steel:      ×{mult['steel']:.2f}")
-            print(f"    Materials:  ×{mult['materials']:.2f}")
-            print(f"    Labor:      ×{mult['labor']:.2f}")
-            print(f"    Access:     ×{mult['access']:.2f}")
+            print(f"    Steel:      x{mult['steel']:.2f}")
+            print(f"    Materials:  x{mult['materials']:.2f}")
+            print(f"    Labor:      x{mult['labor']:.2f}")
+            print(f"    Access:     x{mult['access']:.2f}")
         
         print(f"\n{'='*70}")
         print("LINE-LEVEL ECONOMIC SUMMARY")
@@ -405,7 +405,35 @@ Example usage:
         
         # Constructability warnings
         constructability_warnings = check_constructability(result.best_design, inputs)
-        print(f"\n{format_warnings(constructability_warnings)}")
+        try:
+            warnings_text = format_warnings(constructability_warnings)
+            # Ensure ASCII-safe encoding for Windows console
+            warnings_text = warnings_text.encode('ascii', errors='replace').decode('ascii')
+            # Print with error handling for Windows console issues - use stderr for better compatibility
+            try:
+                import sys
+                sys.stderr.write(f"\n{warnings_text}\n")
+                sys.stderr.flush()
+            except (OSError, UnicodeEncodeError) as os_err:
+                # Windows console encoding issue - skip printing but don't crash
+                try:
+                    sys.stderr.write("\n[Constructability warnings generated but could not be displayed due to console encoding issue]\n")
+                    sys.stderr.flush()
+                except Exception:
+                    pass  # If even stderr fails, silently skip
+        except Exception as e:
+            # Sanitize error message before printing
+            try:
+                import sys
+                error_msg = str(e).encode('ascii', errors='replace').decode('ascii')
+                sys.stderr.write(f"\n[Error displaying constructability warnings: {error_msg}]\n")
+                sys.stderr.flush()
+            except Exception:
+                try:
+                    sys.stderr.write("\n[Error displaying constructability warnings]\n")
+                    sys.stderr.flush()
+                except Exception:
+                    pass  # If even stderr fails, silently skip
         
         # Regional risk context
         regional_risks = get_regional_risks(inputs.project_location)

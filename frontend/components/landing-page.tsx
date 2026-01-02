@@ -1,116 +1,123 @@
 "use client"
 
-import { Zap, Shield, DollarSign, AlertTriangle } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Logo } from "@/components/logo"
-import { ThemeToggle } from "@/components/theme-toggle"
-
-const features = [
-  {
-    icon: Zap,
-    title: "Physics-based Optimization",
-    description: "Advanced structural analysis using real-world physics models for accurate tower design calculations.",
-  },
-  {
-    icon: Shield,
-    title: "International Code Compliance",
-    description: "Full compliance with IS, IEC, EN, and ASCE standards for global deployment readiness.",
-  },
-  {
-    icon: DollarSign,
-    title: "Cost & Constructability Awareness",
-    description: "Optimize designs for both performance and economic efficiency with constructability insights.",
-  },
-]
+import React, { useEffect, useState } from 'react'
+import { ArrowRight, Activity, ShieldCheck, Ruler, Moon, Sun } from 'lucide-react'
 
 interface LandingPageProps {
   onStartOptimization?: () => void
 }
 
+const FeatureCard = ({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) => (
+  <div className="p-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow">
+    <div className="w-10 h-10 bg-slate-50 dark:bg-slate-700 rounded-lg flex items-center justify-center mb-4 border border-slate-100 dark:border-slate-600">
+      {icon}
+    </div>
+    <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-2">{title}</h3>
+    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{desc}</p>
+  </div>
+)
+
 export default function LandingPage({ onStartOptimization }: LandingPageProps) {
+  const [isDark, setIsDark] = useState(false)
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme')
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && prefersDark)
+    setIsDark(shouldBeDark)
+    if (shouldBeDark) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [])
+
+  const toggleTheme = () => {
+    const newTheme = !isDark
+    setIsDark(newTheme)
+    if (newTheme) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <Logo width={40} height={40} />
-              <span className="font-semibold text-foreground text-lg">Larsen & Toubro</span>
-            </div>
-            <ThemeToggle />
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-900 flex flex-col font-sans text-slate-900 dark:text-slate-100">
+      
+      {/* 1. Corporate Header */}
+      <header className="h-20 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-8 flex items-center justify-between sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-[#005EB8] rounded flex items-center justify-center text-white font-bold text-xl shadow-sm">
+            L
           </div>
+          <div>
+            <h1 className="font-bold text-lg leading-none tracking-tight">Larsen & Toubro</h1>
+            <p className="text-xs text-slate-500 font-medium tracking-wide mt-1">PT&D • DIGITAL SOLUTIONS</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+            aria-label="Toggle theme"
+          >
+            {isDark ? <Sun size={18} className="text-slate-600 dark:text-slate-300" /> : <Moon size={18} className="text-slate-600" />}
+          </button>
+          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Welcome, Eng. Aravind</span>
+          <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center text-[#005EB8] dark:text-blue-400 font-bold text-sm">AK</div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl sm:text-5xl font-bold text-foreground mb-6 text-balance">
-            Transmission Line Design Optimizer
-          </h1>
-          <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto text-pretty">
-            Codal-compliant, physics-based optimization for HV transmission towers
-          </p>
-          <Button
-            size="lg"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg"
-            onClick={onStartOptimization}
-          >
-            Start Optimization
-          </Button>
+      {/* 2. Hero Section */}
+      <main className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-4xl mx-auto mt-10">
+        <div className="mb-6 inline-flex items-center px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 text-[#005EB8] dark:text-blue-400 text-xs font-bold uppercase tracking-wider">
+          Internal Engineering Tool v2.4
         </div>
-      </section>
+        
+        <h1 className="text-5xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight mb-6">
+          Transmission Line <br/>
+          <span className="text-[#005EB8] dark:text-blue-400">Optimization Suite</span>
+        </h1>
+        
+        <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mb-10 leading-relaxed">
+          Automated route optimization, structural validation, and cost estimation for HV transmission towers. 
+          Compliant with <span className="font-semibold text-slate-800 dark:text-slate-200">IS-802</span> and <span className="font-semibold text-slate-800 dark:text-slate-200">IEC-60826</span>.
+        </p>
 
-      {/* Features Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-muted/50">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-2xl font-semibold text-foreground text-center mb-12">Key Capabilities</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            {features.map((feature) => (
-              <Card key={feature.title} className="bg-card border-border">
-                <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-blue-600/10 dark:bg-blue-400/10 flex items-center justify-center mb-4">
-                    <feature.icon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <CardTitle className="text-foreground">{feature.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="text-muted-foreground text-base">{feature.description}</CardDescription>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+        <button 
+          onClick={onStartOptimization}
+          className="group relative inline-flex items-center justify-center px-8 py-4 bg-[#005EB8] dark:bg-blue-600 text-white text-lg font-semibold rounded-lg shadow-lg hover:bg-blue-700 dark:hover:bg-blue-700 hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
+        >
+          Initialize New Project
+          <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+        </button>
 
-      {/* Disclaimer Section */}
-      <section className="py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl mx-auto">
-          <Card className="border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20">
-            <CardContent className="flex items-start gap-4 pt-6">
-              <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-amber-800 dark:text-amber-300 mb-2">Engineering Disclaimer</h3>
-                <p className="text-amber-700 dark:text-amber-400/80 text-sm">
-                  This is a decision-support tool. Final designs must be reviewed by qualified engineers before
-                  implementation. All outputs should be validated against applicable codes and standards.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        {/* 3. Feature Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20 w-full text-left">
+          <FeatureCard 
+            icon={<Activity className="text-blue-600" />}
+            title="Physics-Based Solver"
+            desc="Real-time conductor sag & tension analysis with wind gradient modeling."
+          />
+          <FeatureCard 
+            icon={<ShieldCheck className="text-emerald-600" />}
+            title="Safety Validation"
+            desc="Automatic foundation sizing to meet Uplift & Overturning FOS > 1.5."
+          />
+          <FeatureCard 
+            icon={<Ruler className="text-amber-600" />}
+            title="Cost Estimation"
+            desc="Class-4 feasibility estimates with localized material & labor rates."
+          />
         </div>
-      </section>
+      </main>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex items-center justify-center gap-3">
-          <Logo width={24} height={24} />
-          <span className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Larsen & Toubro Limited. All rights reserved.
-          </span>
-        </div>
+      <footer className="py-8 text-center text-slate-400 dark:text-slate-500 text-xs mt-auto border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+        &copy; 2026 Larsen & Toubro Limited. All rights reserved. | <span className="font-mono">CONFIDENTIAL - INTERNAL USE ONLY</span>
       </footer>
     </div>
   )

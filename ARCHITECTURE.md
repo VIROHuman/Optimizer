@@ -136,20 +136,20 @@
 │  │  └─────────────────────────────────────────────────────┘      │      │
 │  │                            │                                  │      │
 │  │                            ▼                                  │      │
-│  │  ┌─────────────────────────────────────────────────────┐      │      │
-│  │  │         cost_engine.py                                │    │      │
+│  │  ┌──────────────────────────────────────────────────────┐     │      │
+│  │  │         cost_engine.py                               │     │      │
 │  │  │  • Reads market_rates.py for regional costs          │     │      │
 │  │  │  • Calculates steel, foundation, erection costs      │     │      │
 │  │  │  • Applies labor and logistics factors               │     │      │
-│  │  │  • Returns cost breakdown with market rates           │    │      │
-│  │  └─────────────────────────────────────────────────────┘      │      │
+│  │  │  • Returns cost breakdown with market rates          │     │      │
+│  │  └──────────────────────────────────────────────────────┘     │      │
 │  │                            │                                  │      │
 │  │                            ▼                                  │      │
 │  │  ┌─────────────────────────────────────────────────────┐      │      │
-│  │  │         canonical_converter.py                       │     │      │
-│  │  │  • Converts OptimizationResult to canonical format   │     │      │
+│  │  │         canonical_converter.py                      │      │      │
+│  │  │  • Converts OptimizationResult to canonical format  │      │      │
 │  │  │  • Adds line summary, cost breakdown, safety        │      │      │
-│  │  │  • Includes regional context, currency               │     │      │
+│  │  │  • Includes regional context, currency              │      │      │
 │  │  └─────────────────────────────────────────────────────┘      │      │
 │  │                                                               │      │
 │  │  Supporting Services:                                         │      │

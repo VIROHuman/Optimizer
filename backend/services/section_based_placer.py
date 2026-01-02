@@ -172,23 +172,42 @@ class SectionBasedPlacer:
                     
                     tower.original_distance_m = original_distance
                     tower.distance_along_route_m = safe_distance
-                    tower.nudge_description = f"Shifted {abs(shift):.1f}m {direction} to avoid {obstacle_name}"
+                    try:
+                        safe_name = str(obstacle_name).encode('ascii', errors='replace').decode('ascii')
+                        tower.nudge_description = f"Shifted {abs(shift):.1f}m {direction} to avoid {safe_name}"
+                    except Exception:
+                        tower.nudge_description = f"Shifted {abs(shift):.1f}m {direction} to avoid obstacle"
                     
-                    logger.warning(
-                        f"[NUDGE] Tower {tower.index} moved from {original_distance:.1f}m to {safe_distance:.1f}m "
-                        f"due to {obstacle_type} ({obstacle_name})"
-                    )
+                    try:
+                        safe_type = str(obstacle_type).encode('ascii', errors='replace').decode('ascii')
+                        safe_name = str(obstacle_name).encode('ascii', errors='replace').decode('ascii')
+                        logger.warning(
+                            f"[NUDGE] Tower {tower.index} moved from {original_distance:.1f}m to {safe_distance:.1f}m "
+                            f"due to {safe_type} ({safe_name})"
+                        )
+                    except Exception:
+                        logger.warning(
+                            f"[NUDGE] Tower {tower.index} moved from {original_distance:.1f}m to {safe_distance:.1f}m "
+                            f"due to obstacle"
+                        )
                 else:
                     tower.nudge_description = None
                     tower.original_distance_m = None
                 
             except Exception as e:
                 # ConstraintError or other error - place tower anyway but flag as violation
-                logger.error(
-                    f"[VIOLATION] Tower {tower.index} at {original_distance:.1f}m: {str(e)}. "
-                    f"Placing anyway (fallback)."
-                )
-                tower.nudge_description = f"⚠️ CONSTRAINT VIOLATION: {str(e)}"
+                try:
+                    safe_msg = str(e).encode('ascii', errors='replace').decode('ascii')
+                    logger.error(
+                        f"[VIOLATION] Tower {tower.index} at {original_distance:.1f}m: {safe_msg}. "
+                        f"Placing anyway (fallback)."
+                    )
+                except Exception:
+                    logger.error(
+                        f"[VIOLATION] Tower {tower.index} at {original_distance:.1f}m: [encoding error]. "
+                        f"Placing anyway (fallback)."
+                    )
+                tower.nudge_description = f"[ALERT] CONSTRAINT VIOLATION: {str(e)}"
                 tower.original_distance_m = original_distance
             
             # Recalculate coordinates for nudged position

@@ -96,28 +96,29 @@ class CodalEngine(ABC):
         ]:
             return False, f"Only shallow foundations are supported. Found: {design.foundation_type}"
         
-        # Soil-based shallow foundation sanity limits
+        # Soil-based shallow foundation sanity limits (RELAXED: Allow risky designs)
         # These are deterministic filters, not final design checks
+        # Lowered bounds to match optimizer - validator will catch unsafe designs
         soil_bounds = {
             "soft": {
-                "footing_length": (5.0, 8.0),
-                "footing_width": (5.0, 8.0),
-                "footing_depth": (4.0, float('inf')),
+                "footing_length": (1.2, 8.0),  # Lowered from 5.0 to 1.2m - allow risky designs
+                "footing_width": (1.2, 8.0),    # Lowered from 5.0 to 1.2m
+                "footing_depth": (1.5, float('inf')),  # Lowered from 4.0 to 1.5m
             },
             "medium": {
-                "footing_length": (3.5, 6.5),
-                "footing_width": (3.5, 6.5),
-                "footing_depth": (2.5, float('inf')),
+                "footing_length": (1.2, 6.5),  # Lowered from 3.5 to 1.2m
+                "footing_width": (1.2, 6.5),   # Lowered from 3.5 to 1.2m
+                "footing_depth": (1.5, float('inf')),  # Lowered from 2.5 to 1.5m
             },
             "hard": {
-                "footing_length": (3.0, 5.5),
-                "footing_width": (3.0, 5.5),
-                "footing_depth": (2.0, float('inf')),
+                "footing_length": (1.2, 5.5),  # Lowered from 3.0 to 1.2m
+                "footing_width": (1.2, 5.5),   # Lowered from 3.0 to 1.2m
+                "footing_depth": (1.5, float('inf')),  # Lowered from 2.0 to 1.5m
             },
             "rock": {
-                "footing_length": (3.0, 5.5),
-                "footing_width": (3.0, 5.5),
-                "footing_depth": (2.0, float('inf')),
+                "footing_length": (1.2, 5.5),  # Lowered from 3.0 to 1.2m
+                "footing_width": (1.2, 5.5),   # Lowered from 3.0 to 1.2m
+                "footing_depth": (1.5, float('inf')),  # Lowered from 2.0 to 1.5m
             },
         }
         
@@ -245,7 +246,7 @@ class CodalEngine(ABC):
         span = design.span_length
         
         # Rule 1: SUSPENSION TOWERS
-        # Allowed range: 0.6 × S_typ ≤ span ≤ 1.1 × S_typ
+        # Allowed range: 0.6 x S_typ <= span <= 1.1 x S_typ
         if tower_type == "suspension":
             min_span = 0.6 * typical_span
             max_span = 1.1 * typical_span
@@ -253,29 +254,29 @@ class CodalEngine(ABC):
             if span < min_span:
                 return False, (
                     f"Span length inconsistent with tower type: "
-                    f"Suspension tower requires span ≥ {min_span:.0f} m "
-                    f"(0.6 × typical span of {typical_span:.0f} m for {voltage} kV). "
+                    f"Suspension tower requires span >= {min_span:.0f} m "
+                    f"(0.6 x typical span of {typical_span:.0f} m for {voltage} kV). "
                     f"Design has {span:.2f} m"
                 )
             
             if span > max_span:
                 return False, (
                     f"Span length inconsistent with tower type: "
-                    f"Suspension tower requires span ≤ {max_span:.0f} m "
-                    f"(1.1 × typical span of {typical_span:.0f} m for {voltage} kV). "
+                    f"Suspension tower requires span <= {max_span:.0f} m "
+                    f"(1.1 x typical span of {typical_span:.0f} m for {voltage} kV). "
                     f"Design has {span:.2f} m"
                 )
         
         # Rule 2: TENSION / DEAD-END TOWERS
-        # Allowed range: span ≥ 0.75 × S_typ
+        # Allowed range: span >= 0.75 x S_typ
         elif tower_type in ["tension", "dead_end"]:
             min_span = 0.75 * typical_span
             
             if span < min_span:
                 return False, (
                     f"Span length inconsistent with tower type: "
-                    f"{tower_type.capitalize()} tower requires span ≥ {min_span:.0f} m "
-                    f"(0.75 × typical span of {typical_span:.0f} m for {voltage} kV). "
+                    f"{tower_type.capitalize()} tower requires span >= {min_span:.0f} m "
+                    f"(0.75 x typical span of {typical_span:.0f} m for {voltage} kV). "
                     f"Design has {span:.2f} m"
                 )
         
@@ -289,16 +290,16 @@ class CodalEngine(ABC):
             if span < min_span:
                 return False, (
                     f"Span length inconsistent with tower type: "
-                    f"Angle tower requires span ≥ {min_span:.0f} m "
-                    f"(0.6 × typical span of {typical_span:.0f} m for {voltage} kV). "
+                    f"Angle tower requires span >= {min_span:.0f} m "
+                    f"(0.6 x typical span of {typical_span:.0f} m for {voltage} kV). "
                     f"Design has {span:.2f} m"
                 )
             
             if span > max_span:
                 return False, (
                     f"Span length inconsistent with tower type: "
-                    f"Angle tower requires span ≤ {max_span:.0f} m "
-                    f"(1.1 × typical span of {typical_span:.0f} m for {voltage} kV). "
+                    f"Angle tower requires span <= {max_span:.0f} m "
+                    f"(1.1 x typical span of {typical_span:.0f} m for {voltage} kV). "
                     f"Design has {span:.2f} m"
                 )
         

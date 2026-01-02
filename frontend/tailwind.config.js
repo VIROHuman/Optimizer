@@ -17,6 +17,13 @@ module.exports = {
   	},
   	extend: {
   		colors: {
+  			// L&T Corporate Colors
+  			'lt-blue': '#005EB8',
+  			'lt-bg': '#F8FAFC',
+  			'lt-surface': '#FFFFFF',
+  			'lt-text': '#1E293B',
+  			'lt-border': '#E2E8F0',
+  			// Existing theme colors (preserved)
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',

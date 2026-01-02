@@ -48,9 +48,12 @@ class TowerResponse(BaseModel):
     total_cost: float = Field(..., description="Total cost for this tower")
     safety_status: TowerSafetyStatus = Field(..., description="SAFE or GOVERNING")
     governing_load_case: Optional[str] = Field(None, description="Governing load case if GOVERNING")
-    design_reason: Optional[str] = Field(None, description="Explanation for tower type selection (e.g., 'Angle tower required for 12° route deviation')")
+    design_reason: Optional[str] = Field(None, description="Explanation for tower type selection (e.g., 'Angle tower required for 12deg route deviation')")
     nudge_description: Optional[str] = Field(None, description="Description of any nudge applied (e.g., 'Shifted 12m fwd to avoid Highway')")
     original_distance_m: Optional[float] = Field(None, description="Original proposed distance before nudge")
+    original_height_m: Optional[float] = Field(None, description="Original height before validation adjustments")
+    original_base_width_m: Optional[float] = Field(None, description="Original base width before validation adjustments")
+    validation_adjustments: Optional[List[str]] = Field(None, description="List of validation adjustments made (e.g., height/width increases)")
 
 
 class SpanResponse(BaseModel):
@@ -78,7 +81,7 @@ class LineSummaryResponse(BaseModel):
     tallest_tower_m: float = Field(..., description="Height of tallest tower")
     deepest_foundation_m: float = Field(..., description="Depth of deepest foundation")
     total_steel_tonnes: float = Field(..., description="Total steel weight in tonnes")
-    total_concrete_m3: float = Field(..., description="Total concrete volume in m³")
+    total_concrete_m3: float = Field(..., description="Total concrete volume in m3")
     total_project_cost: float = Field(..., description="Total project cost")
     cost_per_km: float = Field(..., description="Cost per kilometer")
     estimated_towers_for_project_length: Optional[int] = Field(None, description="Estimated towers if project_length_km provided")

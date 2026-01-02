@@ -25,7 +25,16 @@ export default function Home() {
   }
 
   const handleNavigate = (id: string) => {
-    setActiveSection(id as AppSection)
+    // Map new layout menu items to existing sections
+    const sectionMap: Record<string, AppSection> = {
+      'dashboard': 'dashboard',
+      'route': 'new',
+      'towers': 'new',
+      'cost': 'new',
+      'reports': 'new',
+    }
+    const mappedSection = sectionMap[id] || 'new'
+    setActiveSection(mappedSection)
     setShowResults(false)
     setResults(null)
     setError(null)
@@ -67,18 +76,26 @@ export default function Home() {
     return <LandingPage onStartOptimization={handleStartOptimization} />
   }
 
+  const handleBackToLanding = () => {
+    setView("landing")
+    setShowResults(false)
+    setResults(null)
+    setError(null)
+  }
+
   return (
     <AppLayout
-      projectName="400kV Transmission Line - Project Alpha"
+      projectName="400kV Narnaul Line"
       activeItem={activeSection}
       onNavigate={handleNavigate}
+      onBackToLanding={handleBackToLanding}
     >
       {activeSection === "new" && (
         <div className="space-y-6">
           <TowerOptimizerForm onSubmit={handleRunOptimization} isLoading={isLoading} />
           {error && (
-            <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
-              <p className="text-red-800 dark:text-red-300">Error: {error}</p>
+            <div className="p-4 bg-red-50 border border-red-200 rounded-md shadow-sm">
+              <p className="text-red-800">Error: {error}</p>
             </div>
           )}
           {showResults && results && <OptimizationResults results={results} projectLength={projectLength} />}

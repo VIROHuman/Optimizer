@@ -28,3 +28,17 @@ class OptimizationRequest(BaseModel):
     terrain_profile: Optional[List[Dict[str, float]]] = None  # Optional terrain profile: [{ "x": distance_m, "z": elevation_m }]
     row_mode: Literal["government_corridor", "rural_private", "urban_private", "mixed"] = "urban_private"  # ROW scenario
 
+
+class FoundationSafetyValidationRequest(BaseModel):
+    """Request model for foundation safety validation endpoint."""
+    towers: List[Dict[str, Any]]  # List of TowerResponse objects from optimization result
+    project_location: str  # Project location for market rates
+    voltage: int
+    terrain: Literal["flat", "rolling", "mountainous", "desert"]
+    wind: Literal["zone_1", "zone_2", "zone_3", "zone_4"]
+    soil: Literal["soft", "medium", "hard", "rock"]
+    design_for_higher_wind: bool = False
+    include_ice_load: bool = False
+    include_broken_wire: bool = False
+    auto_correct: bool = True  # Auto-correct unsafe foundations
+

@@ -31,7 +31,12 @@ class ConstructabilityWarning:
             message: Human-readable warning message
             severity: "advisory" or "caution" (for future use)
         """
-        self.message = message
+        # Sanitize message to ensure ASCII-safe encoding (Windows console compatibility)
+        try:
+            self.message = message.encode('ascii', errors='replace').decode('ascii')
+        except Exception:
+            # If encoding fails, use original message (will be sanitized later)
+            self.message = message
         self.severity = severity
     
     def __str__(self):
@@ -44,9 +49,15 @@ class ConstructabilityWarning:
         Returns:
             Dictionary with type, message, and severity fields
         """
+        # Ensure message is ASCII-safe for JSON serialization
+        safe_message = self.message
+        try:
+            safe_message = self.message.encode('ascii', errors='replace').decode('ascii')
+        except Exception:
+            pass
         return {
             "type": "constructability",
-            "message": self.message,
+            "message": safe_message,
             "severity": self.severity,
         }
 
@@ -124,7 +135,7 @@ def _check_footing_size(design: TowerDesign) -> List[ConstructabilityWarning]:
     if design.footing_length > 6.5 or design.footing_width > 6.5:
         warning_msg = (
             f"Large shallow footing footprint "
-            f"({design.footing_length:.2f} m × {design.footing_width:.2f} m). "
+            f"({design.footing_length:.2f} m x {design.footing_width:.2f} m). "
             f"Check excavation stability, working space, and concreting logistics."
         )
         warnings.append(ConstructabilityWarning(warning_msg))
@@ -303,7 +314,7 @@ def _check_base_width_practicality(design: TowerDesign) -> List[Constructability
             f"Compact tower base relative to height "
             f"(base_width/height = {actual_ratio:.3f} < {min_base_width_ratio} for {design.tower_type.value} tower). "
             f"Check erection stability and leg force concentration. "
-            f"Note: Optimizer should enforce base_width >= height × {min_base_width_ratio}."
+            f"Note: Optimizer should enforce base_width >= height x {min_base_width_ratio}."
         )
         warnings.append(ConstructabilityWarning(warning_msg))
     
@@ -388,7 +399,7 @@ def format_warnings(warnings: List[ConstructabilityWarning]) -> str:
         warnings: List of ConstructabilityWarning objects
         
     Returns:
-        Formatted string for display
+        Formatted string for display (ASCII-safe)
     """
     if not warnings:
         return "No constructability warnings identified."
@@ -400,8 +411,15 @@ def format_warnings(warnings: List[ConstructabilityWarning]) -> str:
     lines.append("")
     
     for i, warning in enumerate(warnings, 1):
-        lines.append(f"{i}. {warning.message}")
-        lines.append("")
+        # Sanitize warning message to ensure ASCII-safe
+        try:
+            safe_message = warning.message.encode('ascii', errors='replace').decode('ascii')
+            lines.append(f"{i}. {safe_message}")
+            lines.append("")
+        except Exception:
+            # If encoding fails, use placeholder
+            lines.append(f"{i}. [Warning message could not be displayed]")
+            lines.append("")
     
     lines.append("=" * 70)
     

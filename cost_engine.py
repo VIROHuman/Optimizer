@@ -309,14 +309,7 @@ def calculate_cost(
     country_code = _get_country_code_from_location(inputs.project_location)
     rates = get_rates_for_country(country_code)
     
-    # Print to console for visibility (uvicorn captures stdout)
-    print(f"[COST] Using Reference: {rates['description']}")
-    print(f"[COST]   Steel: ${rates['steel_price_usd']}/tonne, Cement: ${rates['cement_price_usd']}/m3")
-    print(f"[COST]   Labor Factor: {rates['labor_factor']}x, Logistics Factor: {rates['logistics_factor']}x")
-    # Also log via logger (goes to file and console if configured)
-    logger.info(f"Costing using Reference: {rates['description']}")
-    logger.info(f"   Steel: ${rates['steel_price_usd']}/tonne, Cement: ${rates['cement_price_usd']}/m3")
-    logger.info(f"   Labor Factor: {rates['labor_factor']}x, Logistics Factor: {rates['logistics_factor']}x")
+    # Pricing logs removed to reduce log clutter - keep other logs
     
     # Component 1: Steel cost (using market rates)
     steel_cost_base = _calculate_steel_cost(design, inputs, rates['steel_price_usd'])
@@ -366,14 +359,7 @@ def calculate_cost_with_breakdown(
     country_code = _get_country_code_from_location(inputs.project_location)
     rates = get_rates_for_country(country_code)
     
-    # Print to console for visibility (uvicorn captures stdout)
-    print(f"[COST] Using Reference: {rates['description']}")
-    print(f"[COST]   Steel: ${rates['steel_price_usd']}/tonne, Cement: ${rates['cement_price_usd']}/m3")
-    print(f"[COST]   Labor Factor: {rates['labor_factor']}x, Logistics Factor: {rates['logistics_factor']}x")
-    # Also log via logger (goes to file and console if configured)
-    logger.info(f"Costing using Reference: {rates['description']}")
-    logger.info(f"   Steel: ${rates['steel_price_usd']}/tonne, Cement: ${rates['cement_price_usd']}/m3")
-    logger.info(f"   Labor Factor: {rates['labor_factor']}x, Logistics Factor: {rates['logistics_factor']}x")
+    # Pricing logs removed to reduce log clutter - keep other logs
     
     # Component 1: Steel cost (using market rates)
     steel_cost_base = _calculate_steel_cost(design, inputs, rates['steel_price_usd'])

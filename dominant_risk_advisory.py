@@ -488,7 +488,7 @@ def generate_risk_advisories(
     """
     Generate risk advisories for the given project inputs.
     
-    Escalates severity for high-voltage lines (≥220 kV) when risk is dominant.
+    Escalates severity for high-voltage lines (>=220 kV) when risk is dominant.
     
     Args:
         inputs: OptimizationInputs with project context

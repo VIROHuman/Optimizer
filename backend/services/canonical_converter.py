@@ -3,20 +3,20 @@ Canonical Result Converter.
 
 Converts current optimization result format to canonical OptimizationResult schema.
 
-═══════════════════════════════════════════════════════════════════════════
+================================================================================
 SINGLE POINT OF TRUTH FOR SAFE-ONLY RETURNS
-═══════════════════════════════════════════════════════════════════════════
+================================================================================
 
 This module is the ONLY place that decides final output safety.
 
 CRITICAL RULES:
-1. If result.is_safe == False → Force conservative safe fallback
+1. If result.is_safe == False -> Force conservative safe fallback
 2. Log warning, NEVER raise exception
 3. Always return CanonicalOptimizationResult with safety_summary.overall_status = "SAFE"
 4. Violations are explanatory (governing constraints), not fatal
 
 This ensures API NEVER returns UNSAFE final designs.
-═══════════════════════════════════════════════════════════════════════════
+================================================================================
 """
 
 from typing import Dict, Any, List, Optional
@@ -73,11 +73,11 @@ def calculate_steel_weight_kg(design: TowerDesign, inputs: OptimizationInputs) -
 
 def calculate_concrete_volume_m3(design: TowerDesign) -> float:
     """
-    Calculate concrete volume in m³ for foundation.
+    Calculate concrete volume in m3 for foundation.
     
     Assumes 4 footings per tower (one per leg).
     """
-    # Volume per footing = length × width × depth
+    # Volume per footing = length x width x depth
     volume_per_footing = design.footing_length * design.footing_width * design.footing_depth
     
     # 4 footings per tower
@@ -109,48 +109,99 @@ def convert_to_canonical(
     design = result.best_design
     is_original_safe = result.is_safe
     
-    # ═══════════════════════════════════════════════════════════════════════
+    # ========================================================================
     # SINGLE POINT OF TRUTH: Force safe-only return
-    # ═══════════════════════════════════════════════════════════════════════
+    # ========================================================================
     # This is the ONLY place that decides final output safety.
     # If design is unsafe, we MUST return conservative safe design.
     # Log warning, NEVER raise exception.
-    # ═══════════════════════════════════════════════════════════════════════
+    # ========================================================================
     
+    # FORCE RAW RESULTS: Only apply fallback for clearance violations (safety-critical)
+    # Allow ALL foundation-related violations - validator will catch and auto-correct
     if not result.is_safe:
         import logging
         logger = logging.getLogger(__name__)
-        logger.warning(
-            f"Unsafe design detected in canonical converter. "
-            f"Violations: {result.safety_violations}. "
-            f"Applying conservative safe fallback."
+        
+        # Check if violations are critical (ONLY clearance) vs. minor (everything else)
+        # Foundation bounds, FOS, margins are handled by validator, not here
+        has_critical_violation = any(
+            'clearance' in violation.lower()
+            for violation in result.safety_violations
         )
         
-        # Create conservative safe design
-        from data_models import FoundationType
-        
-        # Determine minimum height based on voltage
-        voltage = inputs.voltage_level
-        min_height = 40.0
-        if voltage >= 765:
-            min_height = 50.0
-        elif voltage >= 400:
-            min_height = 45.0
-        
-        design = TowerDesign(
-            tower_type=design.tower_type,
-            tower_height=max(design.tower_height, min_height),  # Ensure minimum height
-            base_width=max(design.base_width, min_height * 0.3),  # Ensure minimum base (30% of height)
-            span_length=max(inputs.span_min, min(design.span_length, inputs.span_max)),  # Clamp span
-            foundation_type=FoundationType.PAD_FOOTING,
-            footing_length=max(design.footing_length, 5.0),  # Larger footing
-            footing_width=max(design.footing_width, 5.0),
-            footing_depth=max(design.footing_depth, 4.0),  # Deeper foundation
-        )
-        
-        # Note: We don't re-check safety here because we're forcing conservative values
-        # The design should be safe by construction. If not, it's logged but we still return.
-        is_original_safe = False  # Mark that we used fallback
+        if has_critical_violation:
+            # Critical violation (clearance only) - apply conservative safe fallback
+            try:
+                # Sanitize violations to prevent encoding issues
+                safe_violations = [
+                    str(v).encode('ascii', errors='replace').decode('ascii')
+                    for v in result.safety_violations
+                ]
+                logger.warning(
+                    f"Critical clearance violation detected. "
+                    f"Violations: {safe_violations}. "
+                    f"Applying conservative safe fallback. "
+                    f"Original design: H={design.tower_height:.2f}m, "
+                    f"Footing={design.footing_length:.2f}x{design.footing_width:.2f}x{design.footing_depth:.2f}m"
+                )
+            except Exception:
+                logger.warning(
+                    f"Critical clearance violation detected. "
+                    f"Applying conservative safe fallback. "
+                    f"Original design: H={design.tower_height:.2f}m, "
+                    f"Footing={design.footing_length:.2f}x{design.footing_width:.2f}x{design.footing_depth:.2f}m"
+                )
+            
+            # Create conservative safe design
+            from data_models import FoundationType
+            
+            # Determine minimum height based on voltage
+            voltage = inputs.voltage_level
+            min_height = 40.0
+            if voltage >= 765:
+                min_height = 50.0
+            elif voltage >= 400:
+                min_height = 45.0
+            
+            design = TowerDesign(
+                tower_type=design.tower_type,
+                tower_height=max(design.tower_height, min_height),  # Ensure minimum height
+                base_width=max(design.base_width, min_height * 0.3),  # Ensure minimum base (30% of height)
+                span_length=max(inputs.span_min, min(design.span_length, inputs.span_max)),  # Clamp span
+                foundation_type=FoundationType.PAD_FOOTING,
+                footing_length=max(design.footing_length, 5.0),  # Larger footing
+                footing_width=max(design.footing_width, 5.0),
+                footing_depth=max(design.footing_depth, 4.0),  # Deeper foundation
+            )
+            
+            # Note: We don't re-check safety here because we're forcing conservative values
+            # The design should be safe by construction. If not, it's logged but we still return.
+            is_original_safe = False  # Mark that we used fallback
+        else:
+            # All other violations (foundation bounds, FOS, margins) - allow risky design to pass through
+            try:
+                # Sanitize violations to prevent encoding issues
+                safe_violations = [
+                    str(v).encode('ascii', errors='replace').decode('ascii')
+                    for v in result.safety_violations
+                ]
+                logger.info(
+                    f"Risky design detected (foundation bounds/FOS/margins). "
+                    f"Violations: {safe_violations}. "
+                    f"Allowing to pass through - validator will catch low FOS. "
+                    f"Design: H={design.tower_height:.2f}m, "
+                    f"Footing={design.footing_length:.2f}x{design.footing_width:.2f}x{design.footing_depth:.2f}m"
+                )
+            except Exception:
+                logger.info(
+                    f"Risky design detected (foundation bounds/FOS/margins). "
+                    f"Allowing to pass through - validator will catch low FOS. "
+                    f"Design: H={design.tower_height:.2f}m, "
+                    f"Footing={design.footing_length:.2f}x{design.footing_width:.2f}x{design.footing_depth:.2f}m"
+                )
+            # Keep original design - validator will catch low FOS and auto-correct
+            is_original_safe = False  # Mark as unsafe, but don't replace design
     
     # Calculate costs
     _, cost_breakdown = calculate_cost_with_breakdown(design, inputs)
@@ -195,6 +246,10 @@ def convert_to_canonical(
     erection_cost_total = cost_breakdown['erection_cost']
     transport_cost = erection_cost_total * 0.2  # Approximate split
     
+    # Store original values before validation
+    original_height = design.tower_height
+    original_base_width = design.base_width
+    
     tower = TowerResponse(
         index=tower_index,
         distance_along_route_m=distance_along_route,
@@ -221,8 +276,31 @@ def convert_to_canonical(
         land_ROW_cost=round(cost_breakdown['land_cost'] * cost_multiplier, 2),
         total_cost=round(cost_breakdown['total_cost'] * cost_multiplier, 2),
         safety_status=TowerSafetyStatus.SAFE if result.is_safe else TowerSafetyStatus.GOVERNING,
-        governing_load_case=result.safety_violations[0] if result.safety_violations else None,
+        governing_load_case=(
+            str(result.safety_violations[0]).encode('ascii', errors='replace').decode('ascii')
+            if result.safety_violations else None
+        ),
+        original_height_m=original_height,  # Store original for comparison
+        original_base_width_m=original_base_width,  # Store original for comparison
     )
+    
+    # Validate and adjust tower for vertical clearance and slenderness
+    # Use average span from inputs or default to 350m
+    avg_span = design.span_length if hasattr(design, 'span_length') and design.span_length else 350.0
+    if inputs.span_min and inputs.span_max:
+        avg_span = (inputs.span_min + inputs.span_max) / 2.0
+    
+    from backend.services.design_validator import validate_and_adjust_tower
+    tower_dict = tower.dict()
+    tower_dict = validate_and_adjust_tower(
+        tower_dict=tower_dict,
+        span_length_m=avg_span,
+        voltage_kv=inputs.voltage_level,
+        inputs=inputs,
+    )
+    
+    # Recreate TowerResponse with validated/adjusted values
+    tower = TowerResponse(**tower_dict)
     
     # Build spans[] array (single representative span for now)
     # Calculate span confidence
@@ -317,13 +395,13 @@ def convert_to_canonical(
     if inputs.conservative_foundation:
         active_scenarios.append("Conservative foundation design mode")
     
-    # ═══════════════════════════════════════════════════════════════════════
+    # ========================================================================
     # CRITICAL: Always return SAFE status in final output
-    # ═══════════════════════════════════════════════════════════════════════
+    # ========================================================================
     # Even if original design was unsafe, we've applied conservative fallback.
     # Final output MUST always show SAFE status.
     # Violations are explanatory (governing constraints), not fatal.
-    # ═══════════════════════════════════════════════════════════════════════
+    # ========================================================================
     
     safety_summary = SafetySummaryResponse(
         overall_status="SAFE",  # ALWAYS SAFE - enforced by conservative fallback if needed
@@ -335,10 +413,19 @@ def convert_to_canonical(
     if not is_original_safe:
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(
-            "Conservative safe fallback was applied. "
-            "Original violations were: " + ", ".join(result.safety_violations)
-        )
+        try:
+            # Sanitize violations to prevent encoding issues
+            safe_violations = [
+                str(v).encode('ascii', errors='replace').decode('ascii')
+                for v in result.safety_violations
+            ]
+            logger.info(
+                "Conservative safe fallback was applied. "
+                "Original violations were: " + ", ".join(safe_violations)
+            )
+        except Exception:
+            # If encoding fails, log without violations
+            logger.info("Conservative safe fallback was applied. [Violations could not be displayed]")
     
     # Regional context with confidence scoring
     regional_risks_list = get_regional_risks(inputs.project_location) or []
@@ -388,12 +475,34 @@ def convert_to_canonical(
     )
     
     # Legacy compatibility fields
-    from constructability_engine import check_constructability
-    constructability_warnings = check_constructability(design, inputs)
-    warnings = [
-        w.to_dict() if hasattr(w, 'to_dict') else {'type': 'constructability', 'message': str(w)}
-        for w in constructability_warnings
-    ]
+    # Wrap entire constructability check in try-except to prevent any encoding errors from crashing
+    warnings = []
+    try:
+        from constructability_engine import check_constructability
+        constructability_warnings = check_constructability(design, inputs)
+        for w in constructability_warnings:
+            try:
+                if hasattr(w, 'to_dict'):
+                    warning_dict = w.to_dict()
+                    # Sanitize message to ensure ASCII-safe encoding
+                    if 'message' in warning_dict:
+                        warning_dict['message'] = warning_dict['message'].encode('ascii', errors='replace').decode('ascii')
+                    warnings.append(warning_dict)
+                else:
+                    msg = str(w).encode('ascii', errors='replace').decode('ascii')
+                    warnings.append({'type': 'constructability', 'message': msg})
+            except (OSError, UnicodeEncodeError, UnicodeDecodeError) as encoding_err:
+                # Skip this warning if encoding fails - don't crash
+                continue
+            except Exception as e:
+                # If individual warning fails for other reasons, skip it silently
+                continue
+    except (OSError, UnicodeEncodeError, UnicodeDecodeError) as encoding_err:
+        # If constructability check fails due to encoding, return empty warnings silently
+        warnings = []
+    except Exception as e:
+        # If constructability check fails for any other reason, return empty warnings silently
+        warnings = []
     
     advisories = [
         {

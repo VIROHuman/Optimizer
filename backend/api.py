@@ -19,7 +19,7 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-from backend.models.request import OptimizationRequest
+from backend.models.request import OptimizationRequest, FoundationSafetyValidationRequest
 from backend.models.response import OptimizationResponse
 from backend.models.route_request import RouteOptimizationRequest
 from backend.models.canonical import (
@@ -37,6 +37,7 @@ from backend.services.currency_resolver import resolve_currency
 from backend.services.optimizer_service import run_optimization
 from backend.services.route_optimizer import optimize_route
 from backend.services.design_validator import validate_design
+from backend.services.foundation_safety_service import validate_all_towers
 
 # ============================================================================
 # FORCE APPLICATION LOGS TO PIGGYBACK ONTO UVICORN'S OUTPUT STREAM
@@ -47,8 +48,9 @@ from backend.services.design_validator import validate_design
 app_logger = logging.getLogger("backend") 
 app_logger.setLevel(logging.DEBUG) # Catch everything
 
-# 2. Create a handler that writes to the Standard Output (Console)
-console_handler = logging.StreamHandler(sys.stdout)
+# 2. Create a handler that writes to stderr (more reliable on Windows)
+# Use stderr instead of stdout to avoid encoding issues with Windows console
+console_handler = logging.StreamHandler(sys.stderr)
 console_handler.setLevel(logging.DEBUG)
 
 # 3. Define a format that stands out from Uvicorn's logs
@@ -155,8 +157,14 @@ async def optimize(request: OptimizationRequest):
         OptimizationResponse with results
     """
     try:
-        # Log received payload for debugging
-        print("Received payload:", request.dict())
+        # Log received payload for debugging (sanitized for encoding safety)
+        try:
+            import sys
+            payload_str = str(request.dict()).encode('ascii', errors='replace').decode('ascii')
+            sys.stderr.write(f"Received payload: {payload_str}\n")
+            sys.stderr.flush()
+        except Exception:
+            pass  # Silently skip if encoding fails
         
         # Convert request to dict format expected by service
         input_dict = {
@@ -198,9 +206,26 @@ async def optimize(request: OptimizationRequest):
     except Exception as e:
         # Unexpected errors - log and return structured error response
         import traceback
-        error_detail = str(e)
-        print(f"ERROR in API endpoint: {error_detail}")
-        print(traceback.format_exc())
+        import sys
+        # Sanitize error message to prevent encoding issues
+        try:
+            error_detail = str(e).encode('ascii', errors='replace').decode('ascii')
+        except Exception:
+            error_detail = "Unknown error occurred"
+        try:
+            sys.stderr.write(f"ERROR in API endpoint: {error_detail}\n")
+            sys.stderr.flush()
+            # Sanitize traceback before printing
+            try:
+                tb_str = traceback.format_exc()
+                safe_tb = tb_str.encode('ascii', errors='replace').decode('ascii')
+                sys.stderr.write(safe_tb)
+                sys.stderr.flush()
+            except Exception:
+                sys.stderr.write("[Traceback could not be displayed due to encoding issue]\n")
+                sys.stderr.flush()
+        except Exception:
+            pass  # If even stderr fails, silently skip
         
         # Return error as canonical format with safe default design
         # This maintains API contract - always returns CanonicalOptimizationResult
@@ -354,10 +379,29 @@ async def optimize_route_endpoint(request: RouteOptimizationRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         import traceback
-        error_detail = str(e)
-        print(f"ERROR in route optimization: {error_detail}")
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Route optimization failed: {error_detail}")
+        import sys
+        # Sanitize error message to prevent encoding issues
+        try:
+            error_detail = str(e).encode('ascii', errors='replace').decode('ascii')
+        except Exception:
+            error_detail = "Unknown error occurred"
+        try:
+            sys.stderr.write(f"ERROR in route optimization: {error_detail}\n")
+            sys.stderr.flush()
+            # Sanitize traceback before printing
+            try:
+                tb_str = traceback.format_exc()
+                safe_tb = tb_str.encode('ascii', errors='replace').decode('ascii')
+                sys.stderr.write(safe_tb)
+                sys.stderr.flush()
+            except Exception:
+                sys.stderr.write("[Traceback could not be displayed due to encoding issue]\n")
+                sys.stderr.flush()
+        except Exception:
+            pass  # If even stderr fails, silently skip
+        # Sanitize error detail for HTTP response
+        safe_detail = error_detail if error_detail else "Route optimization failed"
+        raise HTTPException(status_code=500, detail=f"Route optimization failed: {safe_detail}")
 
 
 @app.post("/validate-design", response_model=ValidationResponse)
@@ -416,10 +460,99 @@ async def validate_design_endpoint(request: ValidationRequest):
         
     except Exception as e:
         import traceback
-        error_detail = str(e)
-        print(f"ERROR in design validation: {error_detail}")
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Design validation failed: {error_detail}")
+        import sys
+        # Sanitize error message to prevent encoding issues
+        try:
+            error_detail = str(e).encode('ascii', errors='replace').decode('ascii')
+        except Exception:
+            error_detail = "Unknown error occurred"
+        try:
+            sys.stderr.write(f"ERROR in design validation: {error_detail}\n")
+            sys.stderr.flush()
+            # Sanitize traceback before printing
+            try:
+                tb_str = traceback.format_exc()
+                safe_tb = tb_str.encode('ascii', errors='replace').decode('ascii')
+                sys.stderr.write(safe_tb)
+                sys.stderr.flush()
+            except Exception:
+                sys.stderr.write("[Traceback could not be displayed due to encoding issue]\n")
+                sys.stderr.flush()
+        except Exception:
+            pass  # If even stderr fails, silently skip
+        # Sanitize error detail for HTTP response
+        safe_detail = error_detail if error_detail else "Design validation failed"
+        raise HTTPException(status_code=500, detail=f"Design validation failed: {safe_detail}")
+
+
+@app.post("/validate-foundation-safety")
+async def validate_foundation_safety_endpoint(request: FoundationSafetyValidationRequest):
+    """
+    Post-optimization foundation safety validation endpoint.
+    
+    Validates all towers for:
+    - Uplift stability
+    - Sliding stability
+    - Overturning stability
+    
+    Auto-corrects unsafe foundations if auto_correct=True.
+    
+    Args:
+        request: FoundationSafetyValidationRequest with towers and project context
+        
+    Returns:
+        Dict with validation results for all towers
+    """
+    try:
+        from data_models import OptimizationInputs, TerrainType, WindZone, SoilCategory
+        
+        # Convert request to OptimizationInputs
+        inputs = OptimizationInputs(
+            project_location=request.project_location,
+            voltage_level=float(request.voltage),
+            terrain_type=TerrainType[request.terrain.upper()],
+            wind_zone=WindZone[request.wind.upper()],
+            soil_category=SoilCategory[request.soil.upper()],
+            design_for_higher_wind=request.design_for_higher_wind,
+            include_ice_load=request.include_ice_load,
+            include_broken_wire=request.include_broken_wire,
+        )
+        
+        # Validate all towers
+        result = validate_all_towers(
+            towers=request.towers,
+            inputs=inputs,
+            project_location=request.project_location,
+            auto_correct=request.auto_correct,
+        )
+        
+        return result
+        
+    except Exception as e:
+        import traceback
+        import sys
+        # Sanitize error message to prevent encoding issues
+        try:
+            error_detail = str(e).encode('ascii', errors='replace').decode('ascii')
+        except Exception:
+            error_detail = "Unknown error occurred"
+        try:
+            sys.stderr.write(f"ERROR in foundation safety validation: {error_detail}\n")
+            sys.stderr.flush()
+            # Sanitize traceback before printing
+            try:
+                tb_str = traceback.format_exc()
+                safe_tb = tb_str.encode('ascii', errors='replace').decode('ascii')
+                sys.stderr.write(safe_tb)
+                sys.stderr.flush()
+            except Exception:
+                sys.stderr.write("[Traceback could not be displayed due to encoding issue]\n")
+                sys.stderr.flush()
+        except Exception:
+            pass  # If even stderr fails, silently skip
+        # Sanitize error detail for HTTP response
+        safe_detail = error_detail if error_detail else "Foundation safety validation failed"
+        raise HTTPException(status_code=500, detail=f"Foundation safety validation failed: {safe_detail}")
 
 
 if __name__ == "__main__":

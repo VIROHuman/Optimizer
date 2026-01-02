@@ -113,20 +113,54 @@ def optimize_route(
     optimized_towers = []
     optimized_spans = []
     
+    # Calculate average span from tower positions for dynamic height bounds
+    # Estimate average span from tower spacing
+    avg_span_estimate = 350.0  # Default
+    if len(tower_positions) > 1:
+        total_span = 0.0
+        span_count = 0
+        for i in range(len(tower_positions) - 1):
+            span_length = tower_positions[i + 1].distance_along_route_m - tower_positions[i].distance_along_route_m
+            if span_length > 0:
+                total_span += span_length
+                span_count += 1
+        if span_count > 0:
+            avg_span_estimate = total_span / span_count
+    else:
+        # Single tower or no towers - use default span from inputs
+        avg_span_estimate = (inputs.span_min + inputs.span_max) / 2.0 if inputs.span_min and inputs.span_max else 350.0
+    
     for i, tower_pos in enumerate(tower_positions):
         # Get classified tower type (geometry-driven, not user-selected)
         geometry_tower_type, deviation_angle_deg, classification_reason = tower_classifications[i]
         
-        # Create optimizer for this tower
+        # Create optimizer for this tower with dynamic height bounds based on average span
         optimizer = PSOOptimizer(
             codal_engine=codal_engine,
             inputs=inputs,
             num_particles=30,
             max_iterations=100,
+            avg_span=avg_span_estimate,
         )
         
         # Optimize tower design using classified type
+        # Force variation: Use tower index to seed random for each tower
+        import random
+        random.seed(i * 12345 + int(tower_pos.distance_along_route_m * 100) % 100000)
+        
         result = optimizer.optimize(tower_type=geometry_tower_type)
+        
+        # Embed diagnostic info in design_reason so it shows in UI
+        diag = result.convergence_info.get('diagnostic', {})
+        dims = diag.get('design_dimensions', {})
+        diag_text = f" | DIAG: Iter={diag.get('iterations_completed', 0)}, Particles={diag.get('particles_count', 0)}, Fitness={diag.get('final_fitness', 0):.0f}, H={dims.get('height', 0):.2f}, F={dims.get('footing_length', 0):.2f}x{dims.get('footing_width', 0):.2f}x{dims.get('footing_depth', 0):.2f}"
+        enhanced_reason = classification_reason + diag_text
+        
+        # Get span length for validation (use next tower or average span)
+        span_length = avg_span_estimate  # Default to average
+        if i < len(tower_positions) - 1:
+            next_tower_pos = tower_positions[i + 1]
+            span_length = next_tower_pos.distance_along_route_m - tower_pos.distance_along_route_m
         
         # Convert to canonical tower response
         tower_response = _create_tower_response(
@@ -136,8 +170,22 @@ def optimize_route(
             tower_index=i,
             geometry_tower_type=geometry_tower_type,
             deviation_angle_deg=deviation_angle_deg,
-            design_reason=classification_reason,
+            design_reason=enhanced_reason,
+            span_length_m=span_length,  # Pass span length for validation
         )
+        
+        # Validate and adjust tower for vertical clearance and slenderness
+        from backend.services.design_validator import validate_and_adjust_tower
+        tower_dict = tower_response.dict()
+        tower_dict = validate_and_adjust_tower(
+            tower_dict=tower_dict,
+            span_length_m=span_length,
+            voltage_kv=inputs.voltage_level,
+            inputs=inputs,
+        )
+        
+        # Recreate TowerResponse with validated/adjusted values
+        tower_response = TowerResponse(**tower_dict)
         optimized_towers.append(tower_response)
         
         # Create span if not last tower
@@ -176,6 +224,7 @@ def _create_tower_response(
     geometry_tower_type: TowerType,
     deviation_angle_deg: Optional[float],
     design_reason: str,
+    span_length_m: float = 350.0,  # Default span for validation
 ) -> TowerResponse:
     """Create TowerResponse from optimized result."""
     from backend.services.canonical_converter import calculate_steel_weight_kg, calculate_concrete_volume_m3
@@ -216,6 +265,10 @@ def _create_tower_response(
     
     from backend.models.canonical import TowerResponse, TowerSafetyStatus
     
+    # Store original values before validation (will be adjusted by validator if needed)
+    original_height = design.tower_height
+    original_base_width = design.base_width
+    
     # Get nudge information from tower position
     nudge_description = None
     original_distance_m = None
@@ -254,6 +307,8 @@ def _create_tower_response(
         governing_load_case=result.safety_violations[0] if (hasattr(result, 'safety_violations') and result.safety_violations) else None,
         nudge_description=nudge_description,
         original_distance_m=original_distance_m,
+        original_height_m=original_height,  # Store original for comparison
+        original_base_width_m=original_base_width,  # Store original for comparison
     )
 
 
@@ -268,7 +323,7 @@ def _apply_tower_scaling(
     
     Rules:
     - Suspension: Base design, no penalties
-    - Angle: Steel × 1.5, Foundation × 1.3
+    - Angle: Steel x 1.5, Foundation x 1.3
     - Dead-End: Voltage-aware scaling (1.6-2.8 for steel, 1.4-1.7 for foundation)
     
     Args:
@@ -296,13 +351,13 @@ def _apply_tower_scaling(
     elif tower_type == TowerType.DEAD_END:
         # Dead-End Towers: Voltage-aware scaling bands
         if voltage_kv >= 765:
-            steel_mult = 2.2 + 0.6 * min(max(dev / 20.0, 0.0), 1.0)  # 2.2 – 2.8
+            steel_mult = 2.2 + 0.6 * min(max(dev / 20.0, 0.0), 1.0)  # 2.2 - 2.8
         elif voltage_kv >= 400:
-            steel_mult = 1.8 + 0.5 * min(max(dev / 30.0, 0.0), 1.0)  # 1.8 – 2.3
+            steel_mult = 1.8 + 0.5 * min(max(dev / 30.0, 0.0), 1.0)  # 1.8 - 2.3
         else:
-            steel_mult = 1.6 + 0.4 * min(max(dev / 35.0, 0.0), 1.0)  # 1.6 – 2.0
+            steel_mult = 1.6 + 0.4 * min(max(dev / 35.0, 0.0), 1.0)  # 1.6 - 2.0
         
-        foundation_mult = 1.4 + 0.3 * min(max(dev / 35.0, 0.0), 1.0)  # 1.4 – 1.7
+        foundation_mult = 1.4 + 0.3 * min(max(dev / 35.0, 0.0), 1.0)  # 1.4 - 1.7
         scaled['steel_cost'] *= steel_mult
         scaled['foundation_cost'] *= foundation_mult
     # Suspension towers: No scaling (base design)

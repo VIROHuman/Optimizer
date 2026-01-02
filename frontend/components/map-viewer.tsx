@@ -323,7 +323,7 @@ export default function MapViewer({
               el.style.pointerEvents = "auto"
               el.style.zIndex = "100" // Ensure markers are visible above the line
               
-              let title = `Tower ${tower.index}: ${tower.total_height_m.toFixed(1)}m`
+              let title = `Tower ${tower.index + 1}: ${tower.total_height_m.toFixed(1)}m`
               if (tower.nudge_description) {
                 title += `\n${tower.nudge_description}`
               }
@@ -332,8 +332,7 @@ export default function MapViewer({
               const marker = new mapboxgl.Marker({
                 element: el,
                 draggable: false, // Viewer-only: no dragging
-                anchor: 'center' as any, // Center of dot is the location
-                offset: [0, 0],
+                anchor: 'center', // Center of dot is the location - fixes zoom drift
               })
                 .setLngLat([tower.longitude, tower.latitude])
                 .addTo(map)
@@ -403,7 +402,7 @@ export default function MapViewer({
         el.style.pointerEvents = "auto"
         el.style.position = "relative"
         
-        let title = `Tower ${tower.index}: ${tower.total_height_m.toFixed(1)}m`
+        let title = `Tower ${tower.index + 1}: ${tower.total_height_m.toFixed(1)}m`
         if (tower.nudge_description) {
           title += `\n${tower.nudge_description}`
         }
@@ -412,8 +411,7 @@ export default function MapViewer({
         const marker = new mapboxgl.Marker({
           element: el,
           draggable: false,
-          anchor: 'center' as any,
-          offset: [0, 0],
+          anchor: 'center', // Center of dot is the location - fixes zoom drift
         })
           .setLngLat([tower.longitude, tower.latitude])
           .addTo(map)
@@ -467,13 +465,21 @@ export default function MapViewer({
   // If no coordinates, show placeholder
   if (!towers.length || !towers[0].latitude || !towers[0].longitude) {
     return (
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle>Map View</CardTitle>
-          <CardDescription>Route visualization (requires GPS coordinates)</CardDescription>
+      <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+        <CardHeader className="border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-slate-800 dark:text-slate-100 font-bold">Route Visualization</CardTitle>
+              <CardDescription className="text-slate-500 dark:text-slate-400">Route visualization (requires GPS coordinates)</CardDescription>
+            </div>
+            <div className="flex gap-2 items-center">
+              <span className="w-3 h-3 rounded-full bg-[#005EB8] dark:bg-blue-400 border border-white dark:border-slate-700 shadow-sm"></span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">Proposed Alignment</span>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="h-96 bg-muted rounded-md flex items-center justify-center">
+        <CardContent className="p-0">
+          <div className="h-[400px] w-full bg-slate-100 dark:bg-slate-900 relative">
             <p className="text-muted-foreground">No GPS coordinates available for map display</p>
           </div>
         </CardContent>

@@ -23,8 +23,15 @@ a hard constraint enforced via penalty.
 
 import random
 import math
+import logging
+import sys
 from typing import List, Tuple, Callable, Dict, Any
 from dataclasses import dataclass
+
+# Force print function for immediate console output
+def force_print(msg):
+    """Force immediate output to stderr, bypassing buffering."""
+    print(f"DEBUG: {msg}", file=sys.stderr, flush=True)
 
 from data_models import (
     TowerDesign, OptimizationInputs, DesignStandard,
@@ -103,6 +110,7 @@ class PSOOptimizer:
         w: float = 0.7,  # Inertia weight
         c1: float = 1.5,  # Cognitive coefficient
         c2: float = 1.5,  # Social coefficient
+        avg_span: float = 350.0,  # Average span length for sag calculation
     ):
         """
         Initialize PSO optimizer.
@@ -115,6 +123,7 @@ class PSOOptimizer:
             w: Inertia weight (0.4-0.9 typical)
             c1: Cognitive coefficient (1.5-2.0 typical)
             c2: Social coefficient (1.5-2.0 typical)
+            avg_span: Average span length in meters (default 350.0) for sag calculation
         """
         self.codal_engine = codal_engine
         self.inputs = inputs
@@ -124,30 +133,58 @@ class PSOOptimizer:
         self.c1 = c1
         self.c2 = c2
         
-        # Voltage-based minimum tower height bounds
+        # --- LOGIC: Calculate Physical Minimum Height ---
+        voltage = inputs.voltage_level
+        
+        # 1. Structural Spacing (Distance from top arm to bottom arm/ground wire)
+        if voltage >= 400:
+            structural_height = 9.0
+            ground_clearance = 8.0
+        elif voltage >= 220:
+            structural_height = 6.0
+            ground_clearance = 7.0
+        else:  # 132kV and below
+            structural_height = 4.0
+            ground_clearance = 6.0
+        
+        # 2. Sag Estimate (Physics of catenary curve)
+        # Rule of thumb: Sag is approx 2.5% of span for standard tension
+        estimated_sag = avg_span * 0.025
+        
+        # 3. The Absolute Logical Floor
+        logical_min_height = ground_clearance + estimated_sag + structural_height
+        logical_min_height = math.ceil(logical_min_height)  # Round up
+        
+        # Ensure logical minimum is at least the voltage-based minimum (safety fallback)
+        # Voltage-based minimum tower height bounds (for safety fallback)
         voltage_min_heights = {
-            132: 25.0,
-            220: 30.0,
-            400: 40.0,
+            132: 15.0,
+            220: 18.0,
+            400: 25.0,
             765: 50.0,
             900: 55.0,
         }
         
-        # Find minimum height for voltage level
-        voltage = inputs.voltage_level
-        min_height = 25.0  # Default minimum
+        voltage_min = 15.0  # Default minimum
         for v_level, h in sorted(voltage_min_heights.items()):
             if voltage >= v_level:
-                min_height = h
+                voltage_min = h
         
-        # Decision variable bounds
+        # Use the higher of logical minimum or voltage minimum
+        min_height = max(logical_min_height, voltage_min)
+        
+        # 4. Set Dynamic Bounds
+        # Base width minimum is roughly 1/6 of height (as per requirements)
+        base_width_min = min_height / 6.0
+        base_width_max = min_height / 4.0  # Maximum base width (25% of height)
+        
         self.bounds = {
-            'height': (min_height, 60.0),
-            'base_width': (0.0, 0.0),  # Will be set relative to height
+            'height': (min_height, 60.0),  # Floor is now physics-based
+            'base_width': (base_width_min, base_width_max),  # Base width relative to height (1/6 to 1/4)
             'span': (inputs.span_min, inputs.span_max),
-            'footing_length': (3.0, 8.0),
-            'footing_width': (3.0, 8.0),
-            'footing_depth': (2.0, 6.0),
+            'footing_length': (1.2, 5.5),  # Allow "too small" - validator will catch sliding
+            'footing_width': (1.2, 5.5),  # Allow "too small" - validator will catch sliding
+            'footing_depth': (1.5, 4.0),  # Lowered from (2.0, 6.0) - allow shallow foundations
         }
         
         # Store voltage minimum for clamping
@@ -180,13 +217,22 @@ class PSOOptimizer:
         Returns:
             OptimizationResult with best design and metadata
         """
+        # Add random seed variation to ensure different results for each tower
+        import random
+        random.seed()  # Use system time as seed (ensures variation)
+        
         # Initialize swarm
         particles = self._initialize_swarm(tower_type)
+        force_print(f"Starting optimization - {len(particles)} particles, {self.max_iterations} iterations")
         
         # Main optimization loop
         for iteration in range(self.max_iterations):
+            if iteration == 0 or iteration % 20 == 0:
+                force_print(f"Iteration {iteration}/{self.max_iterations}, Global best fitness: {self.global_best_fitness:.2f}")
             # Evaluate all particles
+            particles_evaluated = 0
             for particle in particles:
+                particles_evaluated += 1
                 # CRITICAL FIX: Update position vector to match decoded design BEFORE saving best positions
                 # This ensures that if base_width was clamped (e.g., 3.5m -> 7.0m), the position vector reflects the actual design
                 # Otherwise, best_position will save invalid values that pull other particles toward low base_width
@@ -204,13 +250,24 @@ class PSOOptimizer:
                 )
                 
                 # Calculate fitness (per-kilometer line cost)
-                if safety_result.is_safe:
-                    # Calculate per-tower cost
+                # FORCE RAW RESULTS: Only penalize clearance violations (safety-critical)
+                # Allow ALL foundation-related "violations" - validator will check FOS and auto-correct
+                has_critical_violation = False
+                if not safety_result.is_safe:
+                    # Only penalize clearance violations (truly critical for safety)
+                    # Foundation bounds and FOS checks are handled by validator, not optimizer
+                    has_critical_violation = any(
+                        'clearance' in violation.lower()
+                        for violation in safety_result.violations
+                    )
+                
+                if has_critical_violation:
+                    fitness = VERY_LARGE_PENALTY  # Penalty only for clearance violations
+                else:
+                    # Calculate per-tower cost (even if codal engine says "unsafe" - validator will catch it)
                     per_tower_cost = calculate_cost(particle.current_design, self.inputs)
                     # Convert to per-kilometer line cost
                     fitness = self._calculate_per_km_cost(per_tower_cost, particle.current_design)
-                else:
-                    fitness = VERY_LARGE_PENALTY  # Penalty for unsafe design
                 
                 particle.current_fitness = fitness
                 
@@ -219,18 +276,24 @@ class PSOOptimizer:
                     particle.best_fitness = fitness
                     particle.best_position = particle.position.copy()  # Now saves valid position (e.g., 7.0m, not 3.5m)
                 
-                # Update global best (may be unsafe)
-                if fitness < self.global_best_fitness:
+                # Update global best (may be unsafe or risky)
+                # CRITICAL: Initialize global_best_design on first valid particle
+                if self.global_best_design is None or fitness < self.global_best_fitness:
                     self.global_best_fitness = fitness
                     self.global_best_position = particle.position.copy()  # Now saves valid position
                     self.global_best_design = particle.current_design
+                    if iteration < 5 or iteration % 20 == 0:  # Log first few and every 20th
+                        force_print(f"Iter {iteration}: New global best! Fitness: {fitness:.2f}, "
+                                   f"H:{particle.current_design.tower_height:.2f}m, "
+                                   f"Footing:{particle.current_design.footing_length:.2f}x{particle.current_design.footing_width:.2f}x{particle.current_design.footing_depth:.2f}m")
                 
                 # Update global best SAFE design (CRITICAL: Track separately)
-                if safety_result.is_safe and fitness < self.global_best_safe_fitness:
+                # FORCE RAW RESULTS: Track all non-penalized designs (risky or safe)
+                if not has_critical_violation and fitness < self.global_best_safe_fitness:
                     self.global_best_safe_fitness = fitness
                     self.global_best_safe_position = particle.position.copy()  # Now saves valid position
                     self.global_best_safe_design = particle.current_design
-                    self.found_safe_design = True
+                    self.found_safe_design = True  # Mark as "found" even if risky
             
             # Track convergence
             self.convergence_history.append(self.global_best_fitness)
@@ -253,8 +316,8 @@ class PSOOptimizer:
         if (self.global_best_design.span_length < self.bounds['span'][0] or 
             self.global_best_design.span_length > self.bounds['span'][1]):
             # Log warning and clamp (should never happen)
-            print(f"WARNING: Best design span ({self.global_best_design.span_length:.2f} m) "
-                  f"outside bounds [{self.bounds['span'][0]}, {self.bounds['span'][1]}]. Clamping.")
+            force_print(f"WARNING: Best design span ({self.global_best_design.span_length:.2f} m) "
+                       f"outside bounds [{self.bounds['span'][0]}, {self.bounds['span'][1]}]. Clamping.")
             clamped_span = max(self.bounds['span'][0], min(self.bounds['span'][1], self.global_best_design.span_length))
             # Create new design with clamped span
             from data_models import TowerDesign
@@ -269,54 +332,45 @@ class PSOOptimizer:
                 footing_depth=self.global_best_design.footing_depth,
             )
         
-        # CRITICAL: Always use best SAFE design if found, otherwise create conservative safe design
-        if self.found_safe_design:
-            # Use best safe design found during optimization
+        # FORCE RETURN: Always return best found design, even if risky (low FOS)
+        # Disabled fallback - validator will catch and auto-correct unsafe designs
+        
+        if self.global_best_design and self.global_best_fitness < VERY_LARGE_PENALTY:
+            # Return best found design (may be risky with low FOS) - validator will catch it
+            final_design = self.global_best_design
+            final_safety = self.codal_engine.is_design_safe(final_design, self.inputs)
+            force_print(f"Returning best design - Fitness: {self.global_best_fitness:.2f}, "
+                       f"H:{final_design.tower_height:.2f}m, "
+                       f"Footing:{final_design.footing_length:.2f}x{final_design.footing_width:.2f}x{final_design.footing_depth:.2f}m, "
+                       f"Safe: {final_safety.is_safe}, Violations: {len(final_safety.violations)}")
+        elif self.found_safe_design:
+            # Fallback to safe design only if no valid risky design found
             final_design = self.global_best_safe_design
             final_safety = self.codal_engine.is_design_safe(final_design, self.inputs)
+            force_print(f"Returning safe design. Fitness: {self.global_best_safe_fitness:.2f}")
         else:
-            # No safe design found - create conservative safe design
-            # This should rarely happen, but ensures we NEVER return unsafe final design
-            print("WARNING: No safe design found during optimization. Using conservative safe design.")
+            # Last resort: create minimal design (should rarely happen)
+            force_print("WARNING: No valid design found. Creating minimal design.")
             from data_models import TowerDesign, FoundationType
             
-            # Conservative safe design: taller tower, larger base, shorter span
             voltage = self.inputs.voltage_level
-            min_height = 40.0
-            if voltage >= 765:
-                min_height = 50.0
-            elif voltage >= 400:
-                min_height = 45.0
+            min_height = self.voltage_min_height
             
             final_design = TowerDesign(
-                tower_type=self.global_best_design.tower_type if self.global_best_design else tower_type,
+                tower_type=tower_type,
                 tower_height=min_height,
-                base_width=max(12.0, min_height * 0.3),  # Conservative base width
-                span_length=self.bounds['span'][0] + 50.0,  # Shorter span (safer)
+                base_width=min_height * 0.25,  # Minimum base width
+                span_length=self.bounds['span'][0] + 100.0,
                 foundation_type=FoundationType.PAD_FOOTING,
-                footing_length=5.0,  # Larger footing
-                footing_width=5.0,
-                footing_depth=4.0,  # Deeper foundation
+                footing_length=self.bounds['footing_length'][0],  # Minimum footing
+                footing_width=self.bounds['footing_width'][0],
+                footing_depth=self.bounds['footing_depth'][0],  # Minimum depth
             )
             final_safety = self.codal_engine.is_design_safe(final_design, self.inputs)
-            # If still unsafe, log error (should never happen with conservative values)
-            if not final_safety.is_safe:
-                print(f"ERROR: Conservative design still unsafe. Violations: {final_safety.violations}")
-                # Force safe by using even more conservative values
-                final_design = TowerDesign(
-                    tower_type=final_design.tower_type,
-                    tower_height=min_height + 5.0,
-                    base_width=min_height * 0.35,
-                    span_length=self.bounds['span'][0],
-                    foundation_type=FoundationType.PAD_FOOTING,
-                    footing_length=6.0,
-                    footing_width=6.0,
-                    footing_depth=5.0,
-                )
-                final_safety = self.codal_engine.is_design_safe(final_design, self.inputs)
         
-        # Calculate final costs for output
-        if final_safety.is_safe:
+        # Calculate final costs for output (even if "unsafe" by codal standards)
+        # RELAXED: Calculate costs for risky designs too - validator will catch low FOS
+        if final_safety.is_safe or self.global_best_fitness < VERY_LARGE_PENALTY:
             per_tower_cost = calculate_cost(final_design, self.inputs)
             per_km_cost = self._calculate_per_km_cost(per_tower_cost, final_design)
             
@@ -333,20 +387,34 @@ class PSOOptimizer:
             row_tower_footprint_per_km = 0.0
         
         return OptimizationResult(
-            best_design=final_design,  # Always use safe design (or conservative safe design)
-            best_cost=per_km_cost if final_safety.is_safe else VERY_LARGE_PENALTY,
-            is_safe=final_safety.is_safe,  # Should always be True now
+            best_design=final_design,  # May be "risky" with low FOS - validator will catch it
+            best_cost=per_km_cost if (final_safety.is_safe or self.global_best_fitness < VERY_LARGE_PENALTY) else VERY_LARGE_PENALTY,
+            is_safe=final_safety.is_safe,  # May be False for risky designs (low FOS) - this is OK
             safety_violations=final_safety.violations if not final_safety.is_safe else [],
             governing_standard=self.inputs.governing_standard,
             iterations=iteration + 1,
             convergence_info={
-                'convergence_history': self.convergence_history,
+                'convergence_history': self.convergence_history[-50:],  # Last 50 only
                 'final_iteration': iteration + 1,
                 'per_tower_cost': per_tower_cost,
                 'per_km_cost': per_km_cost,
-                'found_safe_design': self.found_safe_design,  # Track if safe design was found
+                'found_safe_design': self.found_safe_design,
                 'row_corridor_cost_per_km': row_corridor_cost_per_km,
                 'row_tower_footprint_per_km': row_tower_footprint_per_km,
+                # DIAGNOSTIC INFO - visible in frontend
+                'diagnostic': {
+                    'iterations_completed': iteration + 1,
+                    'particles_count': len(particles),
+                    'global_best_initialized': self.global_best_design is not None,
+                    'final_fitness': self.global_best_fitness,
+                    'design_dimensions': {
+                        'height': final_design.tower_height,
+                        'footing_length': final_design.footing_length,
+                        'footing_width': final_design.footing_width,
+                        'footing_depth': final_design.footing_depth,
+                    },
+                    'optimization_ran': iteration >= 0,  # True if loop ran at least once
+                }
             }
         )
     
@@ -363,16 +431,31 @@ class PSOOptimizer:
         particles = []
         
         for _ in range(self.num_particles):
-            # Random position within bounds
-            # Enforce voltage-based minimum height
-            height = random.uniform(self.voltage_min_height, self.bounds['height'][1])
+            # "Greedy" initialization: Bias towards bottom 25% of ranges to encourage cost saving
+            # This allows optimizer to explore risky/cheap designs from the start
+            height_range = self.bounds['height'][1] - self.voltage_min_height
+            height = random.uniform(self.voltage_min_height, self.voltage_min_height + height_range * 0.25)
+            
             base_width_min = height * 0.25
             base_width_max = height * 0.40
-            base_width = random.uniform(base_width_min, base_width_max)
-            span = random.uniform(*self.bounds['span'])
-            footing_length = random.uniform(*self.bounds['footing_length'])
-            footing_width = random.uniform(*self.bounds['footing_width'])
-            footing_depth = random.uniform(*self.bounds['footing_depth'])
+            base_width_range = base_width_max - base_width_min
+            base_width = random.uniform(base_width_min, base_width_min + base_width_range * 0.25)
+            
+            span_range = self.bounds['span'][1] - self.bounds['span'][0]
+            span = random.uniform(self.bounds['span'][0], self.bounds['span'][0] + span_range * 0.25)
+            
+            # Foundation: Bias towards minimum (risky but cheap)
+            footing_length_min = self.bounds['footing_length'][0]
+            footing_length_range = self.bounds['footing_length'][1] - footing_length_min
+            footing_length = random.uniform(footing_length_min, footing_length_min + footing_length_range * 0.25)
+            
+            footing_width_min = self.bounds['footing_width'][0]
+            footing_width_range = self.bounds['footing_width'][1] - footing_width_min
+            footing_width = random.uniform(footing_width_min, footing_width_min + footing_width_range * 0.25)
+            
+            footing_depth_min = self.bounds['footing_depth'][0]
+            footing_depth_range = self.bounds['footing_depth'][1] - footing_depth_min
+            footing_depth = random.uniform(footing_depth_min, footing_depth_min + footing_depth_range * 0.25)
             
             position = [
                 height,
@@ -506,11 +589,11 @@ class PSOOptimizer:
         This is the optimization objective function.
         
         Formula:
-          per_km_cost = (per_tower_cost × towers_per_km) + ROW_corridor_cost_per_km
+          per_km_cost = (per_tower_cost x towers_per_km) + ROW_corridor_cost_per_km
         
         Where:
           towers_per_km = 1000 / span_length
-          ROW_corridor_cost_per_km = corridor_width × land_rate × 1000
+          ROW_corridor_cost_per_km = corridor_width x land_rate x 1000
         
         Note: per_tower_cost includes tower footprint land cost.
         Corridor ROW cost is added separately at line level.

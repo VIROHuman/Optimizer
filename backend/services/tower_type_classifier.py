@@ -41,7 +41,7 @@ def calculate_deviation_angle_vector(
         next_tower.latitude is not None and next_tower.longitude is not None):
         
         # Convert lat/lon to approximate local coordinates (meters)
-        # Using simple approximation: 1 degree lat ≈ 111 km, 1 degree lon ≈ 111 km * cos(lat)
+        # Using simple approximation: 1 degree lat approx. 111 km, 1 degree lon approx. 111 km * cos(lat)
         # Use current tower as origin for local coordinate system
         lat_origin = current_tower.latitude
         lon_origin = current_tower.longitude

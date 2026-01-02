@@ -90,7 +90,7 @@ class ObstacleDetector:
         min_lat, max_lat = min(lats), max(lats)
         min_lon, max_lon = min(lons), max(lons)
         
-        # Add buffer (0.01 degrees ≈ 1.1 km)
+        # Add buffer (0.01 degrees approx. 1.1 km)
         buffer = 0.01
         bbox = f"{min_lat - buffer},{min_lon - buffer},{max_lat + buffer},{max_lon + buffer}"
         
@@ -142,9 +142,17 @@ class ObstacleDetector:
             logger.info(f"OSM query completed: {water_obstacles} water features, {road_obstacles} roads found")
         
         except requests.exceptions.RequestException as e:
-            logger.warning(f"OSM query failed: {e}. Continuing without OSM obstacles.")
+            try:
+                safe_msg = str(e).encode('ascii', errors='replace').decode('ascii')
+                logger.warning(f"OSM query failed: {safe_msg}. Continuing without OSM obstacles.")
+            except Exception:
+                logger.warning("OSM query failed. Continuing without OSM obstacles.")
         except Exception as e:
-            logger.error(f"Error processing OSM data: {e}")
+            try:
+                safe_msg = str(e).encode('ascii', errors='replace').decode('ascii')
+                logger.error(f"Error processing OSM data: {safe_msg}")
+            except Exception:
+                logger.error("Error processing OSM data: [encoding error]")
     
     def _process_osm_feature(self, element: Dict[str, Any]) -> None:
         """
@@ -204,7 +212,12 @@ class ObstacleDetector:
                     }
                 )
                 self.forbidden_zones.append(zone)
-                logger.debug(f"Created {zone_type} zone: {name} from {start_dist:.1f}m to {end_dist:.1f}m")
+                try:
+                    safe_zone = str(zone_type).encode('ascii', errors='replace').decode('ascii')
+                    safe_name = str(name).encode('ascii', errors='replace').decode('ascii')
+                    logger.debug(f"Created {safe_zone} zone: {safe_name} from {start_dist:.1f}m to {end_dist:.1f}m")
+                except Exception:
+                    logger.debug(f"Created zone from {start_dist:.1f}m to {end_dist:.1f}m")
     
     def _find_route_intersections_shapely(
         self,
@@ -272,7 +285,7 @@ class ObstacleDetector:
         
         # Apply minimum buffer for narrow waterways
         if zone_type == 'waterway' and waterway_type in ['drain', 'ditch']:
-            # Minimum 5m buffer for drains/ditches (convert to degrees, ~0.000045 deg ≈ 5m)
+            # Minimum 5m buffer for drains/ditches (convert to degrees, ~0.000045 deg approx. 5m)
             buffer_distance_deg = max(buffer_distance_deg, 0.000045)
         
         # Buffer the obstacle geometry
@@ -544,7 +557,7 @@ class ObstacleDetector:
         Logic:
         1. Check if target_distance is inside a forbidden zone
         2. If safe: return target_distance
-        3. If forbidden: search outwards (±5m, ±10m, etc.) up to max_shift
+        3. If forbidden: search outwards (+/-5m, +/-10m, etc.) up to max_shift
         4. Return nearest safe distance
         
         Args:
@@ -571,13 +584,23 @@ class ObstacleDetector:
             # Try forward
             forward_pos = target_distance + shift
             if not self._is_in_forbidden_zone(forward_pos):
-                logger.warning(f"[NUDGE] Moved tower at {target_distance:.1f}m to {forward_pos:.1f}m to avoid {obstacle_name} ({zone_type})")
+                try:
+                    safe_name = str(obstacle_name).encode('ascii', errors='replace').decode('ascii')
+                    safe_zone = str(zone_type).encode('ascii', errors='replace').decode('ascii')
+                    logger.warning(f"[NUDGE] Moved tower at {target_distance:.1f}m to {forward_pos:.1f}m to avoid {safe_name} ({safe_zone})")
+                except Exception:
+                    logger.warning(f"[NUDGE] Moved tower at {target_distance:.1f}m to {forward_pos:.1f}m to avoid obstacle")
                 return forward_pos
             
             # Try backward
             backward_pos = target_distance - shift
             if backward_pos >= 0 and not self._is_in_forbidden_zone(backward_pos):
-                logger.warning(f"[NUDGE] Moved tower at {target_distance:.1f}m to {backward_pos:.1f}m to avoid {obstacle_name} ({zone_type})")
+                try:
+                    safe_name = str(obstacle_name).encode('ascii', errors='replace').decode('ascii')
+                    safe_zone = str(zone_type).encode('ascii', errors='replace').decode('ascii')
+                    logger.warning(f"[NUDGE] Moved tower at {target_distance:.1f}m to {backward_pos:.1f}m to avoid {safe_name} ({safe_zone})")
+                except Exception:
+                    logger.warning(f"[NUDGE] Moved tower at {target_distance:.1f}m to {backward_pos:.1f}m to avoid obstacle")
                 return backward_pos
         
         # No safe spot found

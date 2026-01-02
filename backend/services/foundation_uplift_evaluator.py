@@ -79,8 +79,8 @@ def _compute_wind_uplift(design: TowerDesign, inputs: OptimizationInputs) -> flo
     if inputs.design_for_higher_wind:
         pressure *= 1.3
     
-    # Wind uplift = pressure × tower area × uplift coefficient
-    # Tower area approximated as height × base_width
+    # Wind uplift = pressure x tower area x uplift coefficient
+    # Tower area approximated as height x base_width
     tower_area_m2 = design.tower_height * design.base_width
     uplift_coefficient = 0.3  # Typical for lattice towers
     
@@ -101,8 +101,8 @@ def _compute_terrain_uplift(design: TowerDesign, inputs: OptimizationInputs) -> 
     }
     slope_factor = terrain_factor.get(inputs.terrain_type.value, 0.1)
     
-    # Uplift from terrain = tower weight × slope factor
-    # Simplified: assume tower weight proportional to height × base_width
+    # Uplift from terrain = tower weight x slope factor
+    # Simplified: assume tower weight proportional to height x base_width
     tower_weight_factor = design.tower_height * design.base_width / 100.0
     uplift_kn = tower_weight_factor * slope_factor
     
@@ -122,7 +122,7 @@ def _compute_foundation_resistance(design: TowerDesign, inputs: OptimizationInpu
     }
     bearing_capacity = soil_capacity_kpa.get(inputs.soil_category.value, 100.0)
     
-    # Uplift resistance = bearing capacity × area × depth factor
+    # Uplift resistance = bearing capacity x area x depth factor
     # Depth factor increases resistance with depth
     depth_factor = 1.0 + (design.footing_depth - 2.0) * 0.3  # 30% increase per meter above 2m
     depth_factor = max(1.0, depth_factor)  # Minimum 1.0

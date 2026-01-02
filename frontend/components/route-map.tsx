@@ -103,7 +103,10 @@ export default function RouteMap({ onRouteComplete, initialRoute, onMapReady }: 
             setRouteLength(length)
 
             // Add marker and track it
-            const marker = new mapboxgl.Marker({ color: "#ef4444" })
+            const marker = new mapboxgl.Marker({ 
+              color: "#ef4444",
+              anchor: 'center' // Center marker on coordinate - fixes zoom drift
+            })
               .setLngLat([lng, lat])
               .addTo(map)
             markersRef.current.push(marker)
@@ -120,7 +123,10 @@ export default function RouteMap({ onRouteComplete, initialRoute, onMapReady }: 
           if (initialRoute && initialRoute.length > 0) {
             updateRouteLine(map, initialRoute)
             initialRoute.forEach(point => {
-              const marker = new mapboxgl.Marker({ color: "#ef4444" })
+              const marker = new mapboxgl.Marker({ 
+                color: "#ef4444",
+                anchor: 'center' // Center marker on coordinate - fixes zoom drift
+              })
                 .setLngLat([point.lon, point.lat])
                 .addTo(map)
               markersRef.current.push(marker)
@@ -262,18 +268,26 @@ export default function RouteMap({ onRouteComplete, initialRoute, onMapReady }: 
   }
 
   return (
-    <Card className="bg-card border-border">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-foreground text-lg flex items-center gap-2">
-          <Route className="h-5 w-5" />
-          Route Definition
-        </CardTitle>
-        <CardDescription>Click on the map to define your transmission line route</CardDescription>
+    <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+      <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-slate-800 dark:text-slate-100 text-lg flex items-center gap-2 font-bold">
+              <Route className="h-5 w-5" />
+              Route Definition
+            </CardTitle>
+            <CardDescription className="text-slate-500 dark:text-slate-400">Click on the map to define your transmission line route</CardDescription>
+          </div>
+          <div className="flex gap-2 items-center">
+            <span className="w-3 h-3 rounded-full bg-[#005EB8] dark:bg-blue-400 border border-white dark:border-slate-700 shadow-sm"></span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Proposed Alignment</span>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {/* Map Container */}
-          <div ref={mapContainerRef} className="h-96 w-full rounded-md border border-border" />
+          <div ref={mapContainerRef} className="h-[400px] w-full rounded-md border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900" />
           
           {/* Controls */}
           <div className="flex items-center gap-2 flex-wrap">

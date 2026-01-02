@@ -1,7 +1,7 @@
 """
 Cost Sensitivity Bands.
 
-Computes ± variance for DPR realism.
+Computes +/- variance for DPR realism.
 """
 
 from typing import Dict, Tuple
@@ -14,7 +14,7 @@ def calculate_cost_sensitivity_bands(
     inputs: OptimizationInputs,
 ) -> Dict[str, float]:
     """
-    Calculate cost sensitivity bands (± variance).
+    Calculate cost sensitivity bands (+/- variance).
     
     Args:
         base_cost: Base cost estimate
@@ -24,7 +24,7 @@ def calculate_cost_sensitivity_bands(
         Dict with {lower_bound, upper_bound, variance_percent}
     """
     # Base variance factors
-    variance_percent = 15.0  # Default ±15%
+    variance_percent = 15.0  # Default +/-15%
     
     # Increase variance for complex terrain
     if inputs.terrain_type.value == "mountainous":

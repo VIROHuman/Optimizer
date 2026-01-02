@@ -191,9 +191,9 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
         />
       )}
       
-      <Card className="bg-card border-border">
-      <CardHeader>
-        <CardTitle className="text-foreground">Tower Optimization Parameters</CardTitle>
+      <Card className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+        <CardHeader className="border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <CardTitle className="text-slate-800 dark:text-slate-100 font-bold">Tower Optimization Parameters</CardTitle>
         <CardDescription>Configure the design parameters for your transmission tower optimization</CardDescription>
       </CardHeader>
       <CardContent>
@@ -201,29 +201,29 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
           {/* Basic Parameters Grid */}
           {/* Geographic Context Display */}
           {routeCoordinates.length >= 2 && geoContext && (
-            <div className="p-4 bg-muted rounded-lg border border-border">
-              <Label className="text-foreground font-semibold mb-2 block">Geographic Context (Map-Derived)</Label>
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+              <Label className="text-slate-800 dark:text-slate-100 font-semibold mb-2 block">Geographic Context (Map-Derived)</Label>
               <div className="space-y-1 text-sm">
                 {geoContext.country_code ? (
                   <>
                     <div>
-                      <span className="text-muted-foreground">Country: </span>
-                      <span className="font-medium text-foreground">
+                      <span className="text-slate-500 dark:text-slate-400">Country: </span>
+                      <span className="font-medium text-slate-800 dark:text-slate-100">
                         {geoContext.country_name || geoContext.country_code}
                       </span>
                       {geoContext.country_code && (
-                        <span className="text-muted-foreground ml-2">({geoContext.country_code})</span>
+                        <span className="text-slate-500 dark:text-slate-400 ml-2">({geoContext.country_code})</span>
                       )}
                     </div>
                     {geoContext.state && (
                       <div>
-                        <span className="text-muted-foreground">State/Region: </span>
-                        <span className="font-medium text-foreground">{geoContext.state}</span>
+                        <span className="text-slate-500 dark:text-slate-400">State/Region: </span>
+                        <span className="font-medium text-slate-800 dark:text-slate-100">{geoContext.state}</span>
                       </div>
                     )}
                     <div>
-                      <span className="text-muted-foreground">Resolution: </span>
-                      <span className="font-medium text-green-600 dark:text-green-400">
+                      <span className="text-slate-500 dark:text-slate-400">Resolution: </span>
+                      <span className="font-medium text-emerald-600 dark:text-emerald-400">
                         {geoContext.resolution_mode === "map-derived" ? "Map-derived" : "Unresolved"}
                       </span>
                     </div>
@@ -239,20 +239,21 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="voltage" className="text-foreground">
+              <Label htmlFor="voltage" className="text-slate-800 dark:text-slate-100">
                 Voltage Level (kV)
               </Label>
               <Input
                 id="voltage"
+                name="voltage"
                 type="number"
                 placeholder="e.g., 132, 220, 400, 765"
                 min="132"
                 step="1"
                 value={formData.voltage}
                 onChange={(e) => updateField("voltage", e.target.value)}
-                className="bg-background border-input"
+                className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Common values: 132, 220, 400, 765 kV
               </p>
             </div>
@@ -267,7 +268,7 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
                 )}
               </Label>
               <Select value={formData.terrain} onValueChange={(v) => updateField("terrain", v)}>
-                <SelectTrigger className="bg-background border-input">
+                <SelectTrigger id="terrain" name="terrain" className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100">
                   <SelectValue placeholder={autoDetectedTerrain ? `Auto: ${autoDetectedTerrain}` : "Select terrain type"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -294,7 +295,7 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
                 )}
               </Label>
               <Select value={formData.wind} onValueChange={(v) => updateField("wind", v)}>
-                <SelectTrigger className="bg-background border-input">
+                <SelectTrigger id="wind" name="wind" className="bg-background border-input">
                   <SelectValue placeholder={autoDetectedWind ? `Auto: ${autoDetectedWind}` : "Select wind zone"} />
                 </SelectTrigger>
                 <SelectContent>
@@ -316,7 +317,7 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
                 Soil Type
               </Label>
               <Select value={formData.soil} onValueChange={(v) => updateField("soil", v)}>
-                <SelectTrigger className="bg-background border-input">
+                <SelectTrigger id="soil" name="soil" className="bg-background border-input">
                   <SelectValue placeholder="Select soil type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -346,6 +347,7 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
               </Label>
               <Input
                 id="projectLength"
+                name="projectLength"
                 type="number"
                 placeholder="e.g., 50"
                 min="1"
@@ -353,10 +355,10 @@ export default function TowerOptimizerForm({ onSubmit, isLoading = false }: Towe
                 step="1"
                 value={formData.projectLength}
                 onChange={(e) => updateField("projectLength", e.target.value)}
-                className="bg-background border-input"
+                className="bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100"
                 disabled={routeLength > 0}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {routeLength > 0 
                   ? `Auto-filled from route: ${routeLength.toFixed(2)} km`
                   : "Optional: Project length for line-level estimates. Draw a route on the map above to auto-fill this."}

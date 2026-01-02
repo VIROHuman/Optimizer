@@ -45,11 +45,11 @@ def evaluate_broken_wire_case(
     unbalanced_force_kn = conductor_tension_kn * 0.866  # sin(60°) for 3-phase
     
     # Calculate base bending moment from unbalanced load
-    # Moment = Force × Height (simplified)
+    # Moment = Force x Height (simplified)
     base_bending_moment_knm = unbalanced_force_kn * design.tower_height
     
     # Calculate foundation uplift force
-    # Uplift = Unbalanced force × lever arm / base_width
+    # Uplift = Unbalanced force x lever arm / base_width
     # Simplified: uplift is proportional to bending moment and inversely proportional to base width
     uplift_force_kn = base_bending_moment_knm / max(design.base_width / 2.0, 1.0)  # Avoid division by zero
     
@@ -196,7 +196,7 @@ def _get_allowable_uplift(design: TowerDesign, inputs: OptimizationInputs) -> fl
     }
     bearing_capacity = soil_capacity_kpa.get(inputs.soil_category.value, 100.0)
     
-    # Uplift capacity = bearing capacity × area × depth factor
+    # Uplift capacity = bearing capacity x area x depth factor
     depth_factor = 1.0 + (design.footing_depth - 2.0) * 0.2  # Increase with depth
     uplift_capacity_kn = bearing_capacity * foundation_area * depth_factor / 10.0  # Convert to kN
     

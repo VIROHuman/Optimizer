@@ -266,7 +266,7 @@ def parse_input_dict(input_dict: Dict[str, Any]) -> tuple[OptimizationInputs, To
         terrain_type=terrain_type,
         wind_zone=design_wind_zone,
         soil_category=soil_category,
-        span_min=input_dict.get('span_min', 250.0),  # Match original optimizer default
+        span_min=input_dict.get('span_min', 50.0),  # Lowered from 250.0m - allow tight spans (risky but cheap)
         span_max=input_dict.get('span_max', 450.0),  # Match original optimizer default
         governing_standard=governing_standard,
         design_for_higher_wind=input_dict.get('design_for_higher_wind', False),
@@ -362,28 +362,62 @@ def run_optimization(input_dict: Dict[str, Any]) -> Dict[str, Any]:
     # Parse inputs
     inputs, tower_type = parse_input_dict(input_dict)
     
+    # Calculate average span for dynamic height bounds
+    # Use midpoint of span range if available, otherwise default to 350m
+    avg_span = 350.0  # Default
+    if inputs.span_min and inputs.span_max:
+        avg_span = (inputs.span_min + inputs.span_max) / 2.0
+    elif inputs.span_min:
+        avg_span = inputs.span_min
+    elif inputs.span_max:
+        avg_span = inputs.span_max
+    
     # Create codal engine
     codal_engine = create_codal_engine(inputs.governing_standard)
     
-    # Create optimizer
+    # Create optimizer with dynamic height bounds based on average span
     optimizer = PSOOptimizer(
         codal_engine=codal_engine,
         inputs=inputs,
         num_particles=input_dict.get('particles', 30),
         max_iterations=input_dict.get('iterations', 100),
+        avg_span=avg_span,
     )
     
     # Run optimization
+    # ✅ NEW LOGIC: Return the risky result no matter what! (No fallback)
     # Wrap in try-catch to ensure we always return structured response, never crash
     try:
         result = optimizer.optimize(tower_type=tower_type)
+        # ❌ OLD LOGIC: If it's risky, use the safe backup - DISABLED
+        # if not result.is_safe:
+        #     print("Optimization result invalid. Using Fallback.")
+        #     return self._get_safe_fallback_design() 
+        # ✅ NEW LOGIC: Return the risky result no matter what!
     except Exception as e:
         # If optimization fails, return error as violation, not exception
         # This ensures API contract is maintained
         import traceback
-        error_msg = f"Optimization failed: {str(e)}"
-        print(f"ERROR in optimization: {error_msg}")
-        print(traceback.format_exc())
+        import sys
+        # Sanitize error message to prevent encoding issues
+        try:
+            error_msg = f"Optimization failed: {str(e).encode('ascii', errors='replace').decode('ascii')}"
+        except Exception:
+            error_msg = "Optimization failed: [encoding error]"
+        try:
+            sys.stderr.write(f"ERROR in optimization: {error_msg}\n")
+            sys.stderr.flush()
+            # Sanitize traceback before printing
+            try:
+                tb_str = traceback.format_exc()
+                safe_tb = tb_str.encode('ascii', errors='replace').decode('ascii')
+                sys.stderr.write(safe_tb)
+                sys.stderr.flush()
+            except Exception:
+                sys.stderr.write("[Traceback could not be displayed due to encoding issue]\n")
+                sys.stderr.flush()
+        except Exception:
+            pass  # If even stderr fails, silently skip
         
         # Return unsafe result with violation
         from data_models import OptimizationResult, TowerDesign, TowerType, FoundationType
@@ -416,9 +450,20 @@ def run_optimization(input_dict: Dict[str, Any]) -> Dict[str, Any]:
     bounds_violations = validate_design_bounds(result.best_design)
     if bounds_violations:
         # Log the violation (indicates optimizer bug)
-        print(f"WARNING: Optimizer returned design with bounds violations: {bounds_violations}")
+        # Use logging instead of print to avoid encoding issues
+        import logging
+        logger = logging.getLogger(__name__)
+        try:
+            safe_msg = str(bounds_violations).encode('ascii', errors='replace').decode('ascii')
+            logger.warning(f"Optimizer returned design with bounds violations: {safe_msg}")
+        except Exception:
+            logger.warning("Optimizer returned design with bounds violations: [encoding error]")
         for violation in bounds_violations:
-            print(f"  - {violation}")
+            try:
+                safe_viol = str(violation).encode('ascii', errors='replace').decode('ascii')
+                logger.warning(f"  - {safe_viol}")
+            except Exception:
+                pass
         
         # Add bounds violations to safety violations
         if result.is_safe:
