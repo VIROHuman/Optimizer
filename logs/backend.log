@@ -33250,3 +33250,54 @@
 2026-01-02 15:35:17,331 - auto_spotter - INFO - Polyline walker: Processing 2 route coordinates for target_distance=55.00m
 2026-01-02 15:35:17,331 - auto_spotter - INFO - Polyline walker: Processed 2 points, total distance=4187.55m, target=55.00m
 2026-01-02 15:35:17,331 - auto_spotter - INFO - Polyline walker: distance=55.00m -> (28.595226, 77.126185)
+2026-01-07 09:55:43,930 - api - INFO - ============================================================
+2026-01-07 09:55:43,930 - api - INFO - Backend API starting - Logging configured to file and console
+2026-01-07 09:55:43,930 - api - INFO - ============================================================
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: Processing 2 route coordinates for target_distance=0.00m
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: Processed 2 points, total distance=2103.71m, target=0.00m
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: distance=0.00m -> (28.389980, 77.039159)
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: Processing 2 route coordinates for target_distance=420.74m
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: Processed 2 points, total distance=2103.71m, target=420.74m
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: distance=420.74m -> (28.391154, 77.043248)
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: Processing 2 route coordinates for target_distance=841.49m
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: Processed 2 points, total distance=2103.71m, target=841.49m
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: distance=841.49m -> (28.392329, 77.047337)
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: Processing 2 route coordinates for target_distance=1262.23m
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: Processed 2 points, total distance=2103.71m, target=1262.23m
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: distance=1262.23m -> (28.393503, 77.051426)
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: Processing 2 route coordinates for target_distance=1682.97m
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: Processed 2 points, total distance=2103.71m, target=1682.97m
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: distance=1682.97m -> (28.394678, 77.055514)
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: Processing 2 route coordinates for target_distance=2103.71m
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: Processed 2 points, total distance=2103.71m, target=2103.71m
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: distance=2103.71m -> (28.395852, 77.059603)
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: Processing 2 route coordinates for target_distance=60.00m
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: Processed 2 points, total distance=2103.71m, target=60.00m
+2026-01-07 09:56:50,746 - auto_spotter - INFO - Polyline walker: distance=60.00m -> (28.390147, 77.039742)
+2026-01-07 10:06:23,022 - api - INFO - ============================================================
+2026-01-07 10:06:23,023 - api - INFO - Backend API starting - Logging configured to file and console
+2026-01-07 10:06:23,023 - api - INFO - ============================================================
+2026-01-07 10:06:32,633 - api - INFO - ============================================================
+2026-01-07 10:06:32,633 - api - INFO - Backend API starting - Logging configured to file and console
+2026-01-07 10:06:32,633 - api - INFO - ============================================================
+2026-01-07 10:12:04,457 - auto_spotter - INFO - Polyline walker: Processing 4 route coordinates for target_distance=0.00m
+2026-01-07 10:12:04,457 - auto_spotter - INFO - Polyline walker: Processed 4 points, total distance=1507.63m, target=0.00m
+2026-01-07 10:12:04,457 - auto_spotter - INFO - Polyline walker: distance=0.00m -> (34.544201, 69.133337)
+2026-01-07 10:12:04,457 - auto_spotter - INFO - Polyline walker: Processing 4 route coordinates for target_distance=302.91m
+2026-01-07 10:12:04,457 - auto_spotter - INFO - Polyline walker: Processed 4 points, total distance=1507.63m, target=302.91m
+2026-01-07 10:12:04,457 - auto_spotter - INFO - Polyline walker: distance=302.91m -> (34.545609, 69.136168)
+2026-01-07 10:12:04,457 - auto_spotter - INFO - Polyline walker: Processing 4 route coordinates for target_distance=605.82m
+2026-01-07 10:12:04,457 - auto_spotter - INFO - Polyline walker: Processed 4 points, total distance=1507.63m, target=605.82m
+2026-01-07 10:12:04,457 - auto_spotter - INFO - Polyline walker: distance=605.82m -> (34.547018, 69.138999)
+2026-01-07 10:12:04,457 - auto_spotter - INFO - Polyline walker: Processing 4 route coordinates for target_distance=836.72m
+2026-01-07 10:12:04,457 - auto_spotter - INFO - Polyline walker: Processed 4 points, total distance=1507.63m, target=836.72m
+2026-01-07 10:12:04,457 - auto_spotter - INFO - Polyline walker: distance=836.72m -> (34.548010, 69.141213)
+2026-01-07 10:12:04,457 - auto_spotter - INFO - Polyline walker: Processing 4 route coordinates for target_distance=1067.62m
+2026-01-07 10:12:04,473 - auto_spotter - INFO - Polyline walker: Processed 4 points, total distance=1507.63m, target=1067.62m
+2026-01-07 10:12:04,473 - auto_spotter - INFO - Polyline walker: distance=1067.62m -> (34.549003, 69.143427)
+2026-01-07 10:12:04,473 - auto_spotter - INFO - Polyline walker: Processing 4 route coordinates for target_distance=1507.63m
+2026-01-07 10:12:04,473 - auto_spotter - INFO - Polyline walker: Processed 4 points, total distance=1507.63m, target=1507.63m
+2026-01-07 10:12:04,473 - auto_spotter - INFO - Polyline walker: distance=1507.63m -> (34.549788, 69.148136)
+2026-01-07 10:12:04,473 - auto_spotter - INFO - Polyline walker: Processing 4 route coordinates for target_distance=90.00m
+2026-01-07 10:12:04,473 - auto_spotter - INFO - Polyline walker: Processed 4 points, total distance=1507.63m, target=90.00m
+2026-01-07 10:12:04,473 - auto_spotter - INFO - Polyline walker: distance=90.00m -> (34.544619, 69.134178)

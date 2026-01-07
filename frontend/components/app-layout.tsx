@@ -88,7 +88,7 @@ export default function AppLayout({
               onClick={() => handleTabClick(item.id)}
               className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-200 group ${
                 activeTab === item.id 
-                  ? 'bg-blue-50 dark:bg-blue-900/20 text-[#005EB8] dark:text-blue-400 border border-blue-100 dark:border-blue-800' 
+                  ? 'bg-blue-50 dark:bg-black text-[#005EB8] dark:text-blue-400 border border-blue-100 dark:border-slate-800' 
                   : 'text-slate-500 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-900 hover:text-slate-900 dark:hover:text-white'
               }`}
               title={sidebarCollapsed ? item.label : undefined}
