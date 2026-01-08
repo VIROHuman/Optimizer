@@ -113,14 +113,14 @@ def _compute_foundation_resistance(design: TowerDesign, inputs: OptimizationInpu
     """Compute foundation resistance to uplift in kN."""
     foundation_area = design.footing_length * design.footing_width  # m²
     
-    # Soil bearing capacity (kPa)
+    # Soil bearing capacity (kPa) - Updated to match foundation_safety_service.py
     soil_capacity_kpa = {
-        "soft": 50.0,
-        "medium": 100.0,
-        "hard": 200.0,
-        "rock": 500.0,
+        "soft": 150.0,  # Updated from 50.0
+        "medium": 250.0,  # Updated from 100.0
+        "hard": 450.0,  # Updated from 200.0
+        "rock": 500.0,  # Unchanged
     }
-    bearing_capacity = soil_capacity_kpa.get(inputs.soil_category.value, 100.0)
+    bearing_capacity = soil_capacity_kpa.get(inputs.soil_category.value, 250.0)
     
     # Uplift resistance = bearing capacity x area x depth factor
     # Depth factor increases resistance with depth

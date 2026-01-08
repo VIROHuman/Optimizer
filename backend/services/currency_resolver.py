@@ -97,11 +97,19 @@ def resolve_currency(
                                     + ("Geolocation derivation failed." if geo_location_error else "Geographic context unavailable.")
         }
     else:
-        # All other countries: Default to USD
+        # All other countries: Default to USD (International Market Rates)
         logger.info(
-            "Currency resolution: Defaulting to USD. "
+            "Currency resolution: Defaulting to USD (International Market Rates). "
             + ("Geolocation derivation failed - could not determine country from coordinates." if geo_location_error else "Geographic context not available.")
         )
+        return {
+            "code": "USD",
+            "symbol": "$",
+            "label": "USD",
+            "resolution_mode": "fallback-default",
+            "resolution_explanation": "Currency defaulted to USD (International Market Rates) for non-India projects. "
+                                    + ("Geolocation derivation failed." if geo_location_error else "Geographic context unavailable.")
+        }
         return {
             "code": "USD",
             "symbol": "$",

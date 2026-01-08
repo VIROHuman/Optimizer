@@ -658,16 +658,33 @@ class SectionBasedPlacer:
                 # Fall through to standard logic
                 pass
         
-        # Standard placement: Uniform spans
+        # Standard placement: Uniform spans with jitter to avoid robotic placement
         if not (is_smart_slack and slack_target is not None and required_span_for_rest is not None):
+            import random
+            # Calculate cumulative distance with jitter applied
+            cumulative_distance = section.start_corner.distance_m
+            total_remaining_distance = section.section_length_m
+            
             for span_index in range(1, num_spans):  # num_spans - 1 intermediate towers
-                # Calculate position along section
-                position_along_section = span_index * actual_span
+                # Apply jitter factor (0.90 to 1.10) to make placement less robotic
+                jitter = random.uniform(0.90, 1.10)
                 
-                # Use vector math: pos = start + (unit_vector * position_along_section)
-                # But we need to work in distance space, not coordinate space
-                # So we interpolate distance instead
-                distance_along_route = section.start_corner.distance_m + position_along_section
+                # Calculate span with jitter
+                span_with_jitter = actual_span * jitter
+                
+                # Ensure we don't exceed section bounds
+                remaining_spans = num_spans - span_index
+                if remaining_spans > 0:
+                    # Adjust jitter if it would cause us to exceed section length
+                    max_allowed_span = total_remaining_distance / remaining_spans * 1.1  # Allow 10% buffer
+                    span_with_jitter = min(span_with_jitter, max_allowed_span)
+                
+                # Update cumulative distance
+                cumulative_distance += span_with_jitter
+                total_remaining_distance -= span_with_jitter
+                
+                # Use cumulative distance for position
+                distance_along_route = cumulative_distance
             
                 # Get elevation at this position
                 elevation = self.spotter.interpolate_elevation(distance_along_route, terrain_profile)

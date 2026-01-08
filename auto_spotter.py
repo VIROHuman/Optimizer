@@ -94,7 +94,7 @@ class AutoSpotter:
         self,
         span_length_m: float,
         conductor_weight_per_m: float = 1.5,  # kg/m (typical ACSR)
-        tension_kN: float = 50.0,  # Typical tension
+        tension_kN: Optional[float] = None,  # If None, estimate from voltage and span
     ) -> float:
         """
         Calculate conductor sag at mid-span.
@@ -105,16 +105,35 @@ class AutoSpotter:
         Args:
             span_length_m: Span length in meters
             conductor_weight_per_m: Conductor weight per meter (kg/m)
-            tension_kN: Conductor tension (kN)
+            tension_kN: Conductor tension (kN). If None, estimates from voltage and span.
             
         Returns:
             Sag at mid-span in meters
         """
+        # Estimate tension if not provided
+        if tension_kN is None:
+            if hasattr(self, 'inputs') and self.inputs:
+                voltage_kv = self.inputs.voltage_level
+                # Estimate tension based on voltage and span length
+                # Typical values: 400kV ~50-80 kN, 765kV ~80-120 kN per conductor
+                base_tension = 30.0  # kN base tension
+                voltage_factor = voltage_kv / 400.0  # Normalize to 400kV
+                span_factor = span_length_m / 300.0  # Normalize to 300m span
+                tension_kN = base_tension * voltage_factor * span_factor
+                tension_kN = min(tension_kN, 150.0)  # Cap at 150 kN
+            else:
+                # Fallback to default if inputs not available
+                tension_kN = 50.0
+        
         # Convert weight to force (N/m)
         weight_per_m_N = conductor_weight_per_m * 9.81  # kg/m to N/m
         
         # Convert tension to N
         tension_N = tension_kN * 1000.0
+        
+        # Prevent division by zero
+        if tension_N <= 0:
+            tension_N = 1000.0  # Minimum 1 kN to prevent infinite sag
         
         # Catenary sag approximation
         sag_m = (weight_per_m_N * span_length_m * span_length_m) / (8.0 * tension_N)

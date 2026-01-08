@@ -20,6 +20,7 @@ from backend.services.tower_type_classifier import classify_all_towers
 import logging
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)  # Ensure INFO level for error messages
 
 
 def optimize_route(
@@ -55,6 +56,9 @@ def optimize_route(
     location_auto_detected = design_options_with_route.get('_location_auto_detected', False)
     wind_source = design_options_with_route.get('_wind_source')
     terrain_source = design_options_with_route.get('_terrain_source')
+    
+    # Extract geo_context for MarketOracle integration
+    geo_context = design_options.get('geo_context')
     
     # TASK 5.3: Use terrain_profile if provided, otherwise create from coordinates
     if terrain_profile:
@@ -172,6 +176,7 @@ def optimize_route(
             deviation_angle_deg=deviation_angle_deg,
             design_reason=enhanced_reason,
             span_length_m=span_length,  # Pass span length for validation
+            geo_context=geo_context,  # Pass geo_context for MarketOracle
         )
         
         # Validate and adjust tower for vertical clearance and slenderness
@@ -182,6 +187,7 @@ def optimize_route(
             span_length_m=span_length,
             voltage_kv=inputs.voltage_level,
             inputs=inputs,
+            geo_context=geo_context,
         )
         
         # Recreate TowerResponse with validated/adjusted values
@@ -213,6 +219,7 @@ def optimize_route(
         row_mode=row_mode,
         terrain_profile=terrain_profile_parsed,
         obstacles=obstacles,  # Pass obstacles for visualization
+        geo_context=geo_context,  # Pass geo_context for MarketOracle in cost breakdown
     )
 
 
@@ -225,6 +232,7 @@ def _create_tower_response(
     deviation_angle_deg: Optional[float],
     design_reason: str,
     span_length_m: float = 350.0,  # Default span for validation
+    geo_context: Optional[Dict[str, Any]] = None,  # Geographic context for MarketOracle
 ) -> TowerResponse:
     """Create TowerResponse from optimized result."""
     from backend.services.canonical_converter import calculate_steel_weight_kg, calculate_concrete_volume_m3
@@ -233,35 +241,66 @@ def _create_tower_response(
     
     design = result.best_design
     
-    # Calculate base costs
-    _, cost_breakdown = calculate_cost_with_breakdown(design, inputs)
+    # CRITICAL FIX: Ensure design.tower_type matches geometry_tower_type for correct cost calculation
+    # The cost engine uses design.tower_type to determine steel cost multiplier
+    # If there's a mismatch, costs will be wrong (e.g., suspension tower cost calculated as dead-end)
+    if design.tower_type != geometry_tower_type:
+        # Create a new design with correct tower type for cost calculation
+        from data_models import TowerDesign
+        design_for_cost = TowerDesign(
+            tower_type=geometry_tower_type,  # Use geometry-driven type for cost
+            tower_height=design.tower_height,
+            base_width=design.base_width,
+            span_length=design.span_length,
+            foundation_type=design.foundation_type,
+            footing_length=design.footing_length,
+            footing_width=design.footing_width,
+            footing_depth=design.footing_depth,
+        )
+    else:
+        design_for_cost = design
+    
+    # Calculate base costs using design with correct tower type
+    # Pass geo_context to enable MarketOracle integration
+    _, cost_breakdown = calculate_cost_with_breakdown(design_for_cost, inputs, geo_context=geo_context)
     
     # Ensure transport_cost exists (it's calculated as 20% of erection_cost)
     if 'transport_cost' not in cost_breakdown:
         cost_breakdown['transport_cost'] = cost_breakdown.get('erection_cost', 0.0) * 0.2
     
     # Apply tower type scaling (physics & cost scaling)
+    # NOTE: cost_breakdown already contains costs in LOCAL CURRENCY (converted by calculate_cost_with_breakdown)
+    # We only need to scale them, NOT convert again!
     cost_breakdown_scaled = _apply_tower_scaling(
         cost_breakdown, geometry_tower_type, deviation_angle_deg, inputs.voltage_level
     )
     
-    # Currency conversion
-    intelligence_manager = IntelligenceManager()
-    display_currency = "USD"
-    exchange_rate = None
+    # Get currency info from cost_breakdown (already set by calculate_cost_with_breakdown)
+    target_currency_code = cost_breakdown.get('currency_code', 'USD')
+    target_currency_symbol = cost_breakdown.get('currency_symbol', '$')
     
-    if inputs.project_location.lower() in ["india", "indian"]:
-        display_currency = "INR"
-        exchange_rate = intelligence_manager.get_currency_rate("USD", "INR")
-        if exchange_rate is None:
-            exchange_rate = 83.0
-    
-    cost_multiplier = exchange_rate if (display_currency == "INR" and exchange_rate) else 1.0
-    currency_symbol = "₹" if display_currency == "INR" else "$"
+    # CRITICAL: Costs are already in local currency, no need to convert again!
+    # The scaling function already worked on local currency values
     
     steel_weight_kg = calculate_steel_weight_kg(design, inputs)
     erection_cost_total = cost_breakdown_scaled['erection_cost']
     transport_cost = cost_breakdown_scaled['transport_cost']
+    
+    # Costs are already in local currency from calculate_cost_with_breakdown
+    # Just use the scaled values directly
+    final_steel_cost = round(cost_breakdown_scaled['steel_cost'], 2)
+    final_foundation_cost = round(cost_breakdown_scaled['foundation_cost'], 2)
+    final_erection_cost = round(erection_cost_total, 2)
+    final_transport_cost = round(transport_cost, 2)
+    final_land_cost = round(cost_breakdown_scaled.get('land_cost', 0.0), 2)
+    final_total_cost = round(cost_breakdown_scaled['total_cost'], 2)
+    
+    logger.info(
+        f"[COST_DEBUG] Final costs ({target_currency_code}): steel={target_currency_symbol}{final_steel_cost:.2f}, "
+        f"foundation={target_currency_symbol}{final_foundation_cost:.2f}, "
+        f"erection={target_currency_symbol}{final_erection_cost:.2f}, total={target_currency_symbol}{final_total_cost:.2f}"
+    )
+    
     
     from backend.models.canonical import TowerResponse, TowerSafetyStatus
     
@@ -296,12 +335,12 @@ def _create_tower_response(
             "depth": design.footing_depth,
         },
         steel_weight_kg=steel_weight_kg,
-        steel_cost=round(cost_breakdown_scaled['steel_cost'] * cost_multiplier, 2),
-        foundation_cost=round(cost_breakdown_scaled['foundation_cost'] * cost_multiplier, 2),
-        erection_cost=round(erection_cost_total * cost_multiplier, 2),
-        transport_cost=round(transport_cost * cost_multiplier, 2),
-        land_ROW_cost=round(cost_breakdown_scaled.get('land_cost', 0.0) * cost_multiplier, 2),
-        total_cost=round(cost_breakdown_scaled['total_cost'] * cost_multiplier, 2),
+        steel_cost=final_steel_cost,
+        foundation_cost=final_foundation_cost,
+        erection_cost=final_erection_cost,
+        transport_cost=final_transport_cost,
+        land_ROW_cost=final_land_cost,
+        total_cost=final_total_cost,
         design_reason=design_reason,
         safety_status=TowerSafetyStatus.SAFE if result.is_safe else TowerSafetyStatus.GOVERNING,
         governing_load_case=result.safety_violations[0] if (hasattr(result, 'safety_violations') and result.safety_violations) else None,
@@ -338,9 +377,20 @@ def _apply_tower_scaling(
     scaled = costs.copy()
     dev = deviation or 0.0
     
-    # Ensure transport_cost exists (it's calculated as 20% of erection_cost)
+    # Ensure all required cost components exist with defaults
+    # CRITICAL: Verify steel_cost exists and is non-zero (cost calculation bug check)
+    if 'steel_cost' not in scaled:
+        raise ValueError(f"steel_cost missing in cost breakdown for {tower_type.value} tower. Cost breakdown keys: {list(scaled.keys())}")
+    if scaled.get('steel_cost', 0.0) <= 0.0:
+        raise ValueError(f"steel_cost is zero or negative ({scaled.get('steel_cost', 0.0)}) for {tower_type.value} tower. This indicates a cost calculation bug.")
+    if 'foundation_cost' not in scaled:
+        scaled['foundation_cost'] = 0.0
+    if 'erection_cost' not in scaled:
+        scaled['erection_cost'] = 0.0
     if 'transport_cost' not in scaled:
         scaled['transport_cost'] = scaled.get('erection_cost', 0.0) * 0.2
+    if 'land_cost' not in scaled:
+        scaled['land_cost'] = 0.0
     
     if tower_type == TowerType.ANGLE:
         # Angle Towers: Fixed multipliers
@@ -426,6 +476,7 @@ def _aggregate_route_results(
     terrain_source: Optional[str] = None,
     route_coordinates: Optional[List[Dict[str, Any]]] = None,
     obstacles: Optional[List[Dict[str, Any]]] = None,
+    geo_context: Optional[Dict[str, Any]] = None,  # Geographic context for MarketOracle
 ) -> CanonicalOptimizationResult:
     """Aggregate route-level results into canonical format."""
     from backend.models.canonical import (
@@ -500,6 +551,11 @@ def _aggregate_route_results(
     # Get market rates from cost calculation (all towers use same rates based on location)
     # Calculate a sample cost breakdown to extract market rates
     market_rates = None
+    currency_symbol = "$"
+    currency_code = "USD"
+    market_note = None
+    market_source = "static"
+    
     if inputs:
         from cost_engine import calculate_cost_with_breakdown
         from data_models import TowerDesign, FoundationType, TowerType
@@ -514,8 +570,40 @@ def _aggregate_route_results(
             footing_width=4.0,
             footing_depth=3.0,
         )
-        _, sample_cost_breakdown = calculate_cost_with_breakdown(dummy_design, inputs)
+        # Pass geo_context to enable MarketOracle
+        _, sample_cost_breakdown = calculate_cost_with_breakdown(dummy_design, inputs, geo_context=geo_context)
         market_rates = sample_cost_breakdown.get('market_rates')
+        # Extract MarketOracle metadata if available
+        currency_symbol = sample_cost_breakdown.get('currency_symbol', currency_symbol)
+        currency_code = sample_cost_breakdown.get('currency_code', currency_code)
+        market_note = sample_cost_breakdown.get('market_note')
+        market_source = sample_cost_breakdown.get('market_source', market_source)
+        # Extract AI-detected governing standard (Neuro-Symbolic Architecture)
+        # Check both top-level breakdown and market_rates (AI may store it in either location)
+        ai_governing_standard = (
+            sample_cost_breakdown.get('governing_standard') or 
+            (market_rates.get('governing_standard') if market_rates else None)
+        )
+        if ai_governing_standard:
+            logger.debug(
+                f"[NEURO-SYMBOLIC] Extracted AI governing standard: '{ai_governing_standard}' "
+                f"(from breakdown: {sample_cost_breakdown.get('governing_standard')}, "
+                f"from market_rates: {market_rates.get('governing_standard') if market_rates else None})"
+            )
+    
+    # Use MarketOracle currency if available, otherwise use resolved currency
+    final_currency_code = currency_code if market_source == "groq" else currency_dict.get('code', 'USD')
+    final_currency_symbol = currency_symbol if market_source == "groq" else currency_dict.get('symbol', '$')
+    
+    # Enhance market_rates with MarketOracle metadata
+    if market_rates:
+        market_rates['market_note'] = market_note
+        market_rates['market_source'] = market_source
+        market_rates['currency_symbol'] = final_currency_symbol
+        market_rates['currency_code'] = final_currency_code
+        # Include AI-detected standard in market_rates for frontend display
+        if ai_governing_standard:
+            market_rates['governing_standard'] = ai_governing_standard
     
     cost_breakdown = CostBreakdownResponse(
         steel_total=round(steel_total, 2),
@@ -524,9 +612,9 @@ def _aggregate_route_results(
         transport_total=round(transport_total, 2),
         land_ROW_total=round(land_ROW_total, 2),
         total_project_cost=round(total_project_cost, 2),
-        currency=currency_dict["code"],
-        currency_symbol=currency_dict["symbol"],
-        market_rates=market_rates,  # Will be set from first tower's calculation
+        currency=final_currency_code,
+        currency_symbol=final_currency_symbol,
+        market_rates=market_rates,
     )
     
     # Safety summary
@@ -593,8 +681,33 @@ def _aggregate_route_results(
     
     confidence = ConfidenceResponse(score=confidence_score, drivers=confidence_drivers)
     
+    # Use AI-detected governing standard if available (Neuro-Symbolic Architecture)
+    # This allows the frontend to display the actual local standard (e.g., "WAPDA") instead of generic "IS" or "IEC"
+    final_governing_standard = inputs.governing_standard.value  # Default to traditional resolution
+    if ai_governing_standard and market_source == "groq":
+        # Override with AI-detected standard (e.g., "WAPDA" for Pakistan, "NESC" for USA)
+        final_governing_standard = ai_governing_standard
+        logger.info(
+            f"[NEURO-SYMBOLIC] Using AI-detected governing standard: '{ai_governing_standard}' "
+            f"(overrides traditional: '{inputs.governing_standard.value}')"
+        )
+    
+    # THE FIX: Bind AI Currency to Dashboard
+    # Override currency_dict with AI-detected values from cost breakdown (MarketOracle put them there)
+    if market_source == "groq" and currency_symbol and currency_code:
+        # Use AI-detected currency instead of traditional resolution
+        currency_dict = {
+            "code": currency_code,
+            "symbol": currency_symbol,
+            "label": f"{currency_code} ({currency_symbol})"
+        }
+        logger.info(
+            f"[CURRENCY] Using AI-detected currency: {currency_code} ({currency_symbol}) "
+            f"(overrides traditional resolution)"
+        )
+    
     regional_context = RegionalContextResponse(
-        governing_standard=inputs.governing_standard.value,
+        governing_standard=final_governing_standard,  # AI-detected or traditional
         dominant_regional_risks=dominant_risks,
         confidence=confidence,
         wind_source=wind_source,

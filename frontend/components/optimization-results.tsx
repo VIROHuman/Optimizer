@@ -1757,20 +1757,29 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
           {costBreakdown?.market_rates ? (
             <div className="space-y-4">
               <div className="bg-slate-50 dark:bg-black/50 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
-                <p className="text-sm font-medium text-slate-800 dark:text-white mb-3">
-                  {costBreakdown.market_rates.description || "Market Rates"}
-                </p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-medium text-slate-800 dark:text-white">
+                    {costBreakdown.market_rates?.market_note || costBreakdown.market_rates?.description || costBreakdown.market_note || "Market Rates"}
+                  </p>
+                  {(costBreakdown.market_rates?.market_source === "groq" || costBreakdown.market_source === "groq") && (
+                    <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700">
+                      AI-Powered
+                    </Badge>
+                  )}
+                </div>
                 <dl className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <dt className="text-muted-foreground">Steel Price</dt>
                     <dd className="font-medium text-slate-800 dark:text-white">
-                      ${costBreakdown.market_rates.steel_price_usd?.toLocaleString() || "N/A"} / tonne
+                      {costBreakdown.market_rates.currency_symbol || costBreakdown.currency_symbol || "$"}
+                      {(costBreakdown.market_rates.steel_price_local_per_tonne || costBreakdown.market_rates.steel_price_usd)?.toLocaleString() || "N/A"} / tonne
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">Cement Price</dt>
+                    <dt className="text-muted-foreground">Concrete Price</dt>
                     <dd className="font-medium text-slate-800 dark:text-white">
-                      ${costBreakdown.market_rates.cement_price_usd?.toLocaleString() || "N/A"} / m³
+                      {costBreakdown.market_rates.currency_symbol || costBreakdown.currency_symbol || "$"}
+                      {(costBreakdown.market_rates.concrete_price_local_per_m3 || costBreakdown.market_rates.concrete_price_usd || costBreakdown.market_rates.cement_price_usd)?.toLocaleString() || "N/A"} / m³
                     </dd>
                   </div>
                   <div>
@@ -1788,7 +1797,9 @@ export default function OptimizationResults({ results, projectLength }: Optimiza
                 </dl>
               </div>
               <p className="text-xs text-muted-foreground italic">
-                Source: Global Construction Cost Reference Library (Q4 2024 / Q1 2025 Estimates)
+                {costBreakdown.market_rates.market_source === "groq" 
+                  ? "Source: Real-time market rates via MarketOracle (AI-powered)"
+                  : "Source: Global Construction Cost Reference Library (Q4 2024 / Q1 2025 Estimates)"}
               </p>
             </div>
           ) : (

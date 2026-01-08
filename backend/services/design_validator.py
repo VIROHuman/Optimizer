@@ -303,6 +303,7 @@ def validate_and_adjust_tower(
     span_length_m: float,
     voltage_kv: float,
     inputs: OptimizationInputs,
+    geo_context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Validate and adjust tower for vertical clearance and slenderness ratio.
@@ -435,7 +436,7 @@ def validate_and_adjust_tower(
                 footing_depth=tower_dict.get('foundation_dimensions', {}).get('depth', 3.0),
             )
             
-            _, cost_breakdown = calculate_cost_with_breakdown(updated_design, inputs)
+            _, cost_breakdown = calculate_cost_with_breakdown(updated_design, inputs, geo_context=geo_context)
             
             # Update tower dict with new values
             tower_dict['total_height_m'] = current_height

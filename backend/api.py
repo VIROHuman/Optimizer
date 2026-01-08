@@ -14,6 +14,24 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    # Load .env from project root (parent of backend directory)
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+    load_dotenv(env_path)
+    logger_temp = logging.getLogger(__name__)
+    if os.getenv("GROQ_API_KEY"):
+        logger_temp.info("GROQ_API_KEY loaded from .env file")
+    else:
+        logger_temp.warning("GROQ_API_KEY not found in .env file")
+except ImportError:
+    # dotenv not installed, skip loading
+    pass
+except Exception as e:
+    # Log but don't fail if .env loading fails
+    logging.getLogger(__name__).warning(f"Failed to load .env file: {e}")
+
 # Add parent directory to path for imports
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if parent_dir not in sys.path:

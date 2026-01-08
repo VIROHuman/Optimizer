@@ -116,12 +116,13 @@ def get_rates_for_country(country_code: str):
     if country_code in COUNTRY_PROFILES:
         return COUNTRY_PROFILES[country_code]
     
-    # 2. Safe Defaults (If unknown, assume it's an expensive developing nation)
+    # 2. Safe Defaults (Global Average - USD standards)
+    # Updated to realistic global averages per user requirements
     return {
-        'steel_price_usd': 1300.0,
-        'cement_price_usd': 150.0,
+        'steel_price_usd': 1200.0,  # Global average steel price per tonne (user requirement)
+        'cement_price_usd': 120.0,  # Global average concrete price per m³ (user requirement)
         'labor_factor': 2.0,
         'logistics_factor': 1.3,
-        'description': 'Global Default (Conservative)'
+        'description': 'Global Default (International Market Rates)'
     }
 

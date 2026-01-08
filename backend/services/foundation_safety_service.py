@@ -218,7 +218,7 @@ def validate_tower_foundation(
             footing_depth=footing_depth,
         )
         
-        # Check 1: Uplift (get wind+terrain uplift for reference)
+        # Check 1: Uplift (get direct wind uplift for reference)
         uplift_safe, uplift_kn, uplift_case, required_depth = evaluate_foundation_uplift(
             design, inputs, broken_wire_uplift_kn=None
         )
@@ -248,9 +248,12 @@ def validate_tower_foundation(
         # Formula: uplift_force = total_overturning_moment / base_width
         actual_uplift_force_kn = overturning_moment / tower_base_width if tower_base_width > 0 else 0.0
         
-        # Use the actual uplift force (from overturning moment) for FOS calculation
-        # This is the correct uplift force that the foundation must resist
+        # Use the actual uplift force for FOS calculation (moment-derived is the correct value)
+        # This is the actual reaction force that the foundation must resist
         uplift_kn_for_display = actual_uplift_force_kn
+        
+        # Calculate FOS using actual uplift force from moment (not direct wind uplift)
+        # This gives the correct FOS: resistance / actual_force
         uplift_fos = uplift_resistance / actual_uplift_force_kn if actual_uplift_force_kn > 0 else float('inf')
         
         # All checks pass?

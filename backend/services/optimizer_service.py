@@ -266,7 +266,7 @@ def parse_input_dict(input_dict: Dict[str, Any]) -> tuple[OptimizationInputs, To
         terrain_type=terrain_type,
         wind_zone=design_wind_zone,
         soil_category=soil_category,
-        span_min=input_dict.get('span_min', 50.0),  # Lowered from 250.0m - allow tight spans (risky but cheap)
+        span_min=input_dict.get('span_min', 250.0),  # Match original optimizer default
         span_max=input_dict.get('span_max', 450.0),  # Match original optimizer default
         governing_standard=governing_standard,
         design_for_higher_wind=input_dict.get('design_for_higher_wind', False),
@@ -347,6 +347,11 @@ def run_optimization(input_dict: Dict[str, Any]) -> Dict[str, Any]:
             "conservative_foundation": input_dict.get('conservative_foundation', False),
             "high_reliability": input_dict.get('high_reliability', False),
         }
+        
+        # Pass geo_context to optimize_route for MarketOracle integration
+        geo_context = input_dict.get('geo_context')
+        if geo_context:
+            design_options['geo_context'] = geo_context
         
         result = optimize_route(
             route_coordinates=route_coordinates,
