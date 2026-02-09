@@ -2,6 +2,15 @@
 
 A full-stack engineering application for optimizing transmission tower designs with physics-based calculations, PSO optimization, codal compliance checks, and cost estimation.
 
+## 📖 Setup Guides
+
+- **🚀 Quick Start**: See [QUICK_START.md](QUICK_START.md) for 5-minute setup
+- **📚 Complete Setup Guide**: See [SETUP_GUIDE.md](SETUP_GUIDE.md) for detailed instructions including:
+  - Step-by-step local setup
+  - API keys configuration
+  - Free online hosting options
+  - Troubleshooting
+
 ## Architecture
 
 This is a **monorepo** with two strictly separated projects:
