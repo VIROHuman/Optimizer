@@ -1,10 +1,11 @@
 "use client"
 
 import React, { useEffect, useState } from 'react'
-import { ArrowRight, Activity, ShieldCheck, Ruler, Moon, Sun } from 'lucide-react'
+import { ArrowRight, Activity, ShieldCheck, Ruler, Moon, Sun, LogIn } from 'lucide-react'
 
 interface LandingPageProps {
   onStartOptimization?: () => void
+  onLogin?: () => void
 }
 
 const FeatureCard = ({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) => (
@@ -17,7 +18,7 @@ const FeatureCard = ({ icon, title, desc }: { icon: React.ReactNode, title: stri
   </div>
 )
 
-export default function LandingPage({ onStartOptimization }: LandingPageProps) {
+export default function LandingPage({ onStartOptimization, onLogin }: LandingPageProps) {
   const [isDark, setIsDark] = useState(false)
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export default function LandingPage({ onStartOptimization }: LandingPageProps) {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-900 flex flex-col font-sans text-slate-900 dark:text-slate-100">
-      
+
       {/* 1. Corporate Header */}
       <header className="h-20 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-8 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-3">
@@ -66,8 +67,13 @@ export default function LandingPage({ onStartOptimization }: LandingPageProps) {
           >
             {isDark ? <Sun size={18} className="text-slate-600 dark:text-slate-300" /> : <Moon size={18} className="text-slate-600" />}
           </button>
-          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Welcome, Eng. Aravind</span>
-          <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center text-[#005EB8] dark:text-blue-400 font-bold text-sm">AK</div>
+          <button
+            onClick={onLogin}
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-[#005EB8] dark:text-blue-400 border border-[#005EB8]/30 dark:border-blue-500/30 rounded-lg hover:bg-[#005EB8] hover:text-white dark:hover:bg-blue-600 dark:hover:text-white transition-all duration-200 shadow-sm hover:shadow-md"
+          >
+            <LogIn size={16} />
+            Login
+          </button>
         </div>
       </header>
 
@@ -76,18 +82,18 @@ export default function LandingPage({ onStartOptimization }: LandingPageProps) {
         <div className="mb-6 inline-flex items-center px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 text-[#005EB8] dark:text-blue-400 text-xs font-bold uppercase tracking-wider">
           Internal Engineering Tool v2.4
         </div>
-        
+
         <h1 className="text-5xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight mb-6">
-          Transmission Line <br/>
+          Transmission Line <br />
           <span className="text-[#005EB8] dark:text-blue-400">Optimization Suite</span>
         </h1>
-        
+
         <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mb-10 leading-relaxed">
-          Automated route optimization, structural validation, and cost estimation for HV transmission towers. 
+          Automated route optimization, structural validation, and cost estimation for HV transmission towers.
           Compliant with <span className="font-semibold text-slate-800 dark:text-slate-200">IS-802</span> and <span className="font-semibold text-slate-800 dark:text-slate-200">IEC-60826</span>.
         </p>
 
-        <button 
+        <button
           onClick={onStartOptimization}
           className="group relative inline-flex items-center justify-center px-8 py-4 bg-[#005EB8] dark:bg-blue-600 text-white text-lg font-semibold rounded-lg shadow-lg hover:bg-blue-700 dark:hover:bg-blue-700 hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
         >
@@ -97,17 +103,17 @@ export default function LandingPage({ onStartOptimization }: LandingPageProps) {
 
         {/* 3. Feature Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20 w-full text-left">
-          <FeatureCard 
+          <FeatureCard
             icon={<Activity className="text-blue-600" />}
             title="Physics-Based Solver"
             desc="Real-time conductor sag & tension analysis with wind gradient modeling."
           />
-          <FeatureCard 
+          <FeatureCard
             icon={<ShieldCheck className="text-emerald-600" />}
             title="Safety Validation"
             desc="Automatic foundation sizing to meet Uplift & Overturning FOS > 1.5."
           />
-          <FeatureCard 
+          <FeatureCard
             icon={<Ruler className="text-amber-600" />}
             title="Cost Estimation"
             desc="Class-4 feasibility estimates with localized material & labor rates."
