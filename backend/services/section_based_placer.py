@@ -168,27 +168,29 @@ class SectionBasedPlacer:
                             break
                     
                     obstacle_type = conflicting_zone.zone_type if conflicting_zone else 'obstacle'
+                    # 1. Keep the Real Name (UTF-8)
                     obstacle_name = conflicting_zone.name if conflicting_zone else 'Unknown'
                     
                     tower.original_distance_m = original_distance
                     tower.distance_along_route_m = safe_distance
-                    try:
-                        safe_name = str(obstacle_name).encode('ascii', errors='replace').decode('ascii')
-                        tower.nudge_description = f"Shifted {abs(shift):.1f}m {direction} to avoid {safe_name}"
-                    except Exception:
-                        tower.nudge_description = f"Shifted {abs(shift):.1f}m {direction} to avoid obstacle"
                     
+                    # 2. Store Real Name for UI (React handles Chinese fine)
+                    tower.nudge_description = f"Shifted {abs(shift):.1f}m {direction} to avoid {obstacle_name}"
+                    
+                    # 3. Log the Safe Name (Windows Console hates Chinese)
                     try:
+                        # Try logging the real one first
+                        logger.warning(
+                            f"[NUDGE] Tower {tower.index} moved from {original_distance:.1f}m to {safe_distance:.1f}m "
+                            f"due to {obstacle_type} ({obstacle_name})"
+                        )
+                    except UnicodeEncodeError:
+                        # If it fails, log the sanitized version
                         safe_type = str(obstacle_type).encode('ascii', errors='replace').decode('ascii')
                         safe_name = str(obstacle_name).encode('ascii', errors='replace').decode('ascii')
                         logger.warning(
                             f"[NUDGE] Tower {tower.index} moved from {original_distance:.1f}m to {safe_distance:.1f}m "
                             f"due to {safe_type} ({safe_name})"
-                        )
-                    except Exception:
-                        logger.warning(
-                            f"[NUDGE] Tower {tower.index} moved from {original_distance:.1f}m to {safe_distance:.1f}m "
-                            f"due to obstacle"
                         )
                 else:
                     tower.nudge_description = None
