@@ -2,12 +2,13 @@
 
 import * as React from "react"
 import LandingPage from "@/components/landing-page"
+import LoginPage from "@/components/login-page"
 import AppLayout from "@/components/app-layout"
 import TowerOptimizerForm from "@/components/tower-optimizer-form"
 import OptimizationResults from "@/components/optimization-results"
 import { normalizePayload, runOptimization } from "@/lib/api"
 
-type View = "landing" | "app"
+type View = "landing" | "login" | "app"
 type AppSection = "dashboard" | "route" | "towers" | "cost" | "reports"
 
 interface UserProfile {
@@ -59,22 +60,22 @@ export default function Home() {
     setIsLoading(true)
     setError(null)
     setShowResults(false)
-    
+
     try {
       // Store project length for display
       const projectLengthNum = Number(data.projectLength) || 50
       setProjectLength(projectLengthNum)
-      
+
       // Normalize payload to match backend schema exactly
       // projectLength is now sent to backend for canonical format
       const payload = normalizePayload(data)
-      
+
       // Log payload for debugging
       console.log("Sending payload:", payload)
-      
+
       // Call backend API
       const result = await runOptimization(payload)
-      
+
       setResults(result)
       setShowResults(true)
     } catch (err) {
@@ -87,8 +88,13 @@ export default function Home() {
     }
   }
 
-  if (view === "landing") {
-    return <LandingPage onStartOptimization={handleStartOptimization} />
+  const handleGoToLogin = () => {
+    setView("login")
+  }
+
+  const handleLoginSuccess = () => {
+    setView("app")
+    setActiveSection("route")
   }
 
   const handleBackToLanding = () => {
@@ -97,6 +103,15 @@ export default function Home() {
     setResults(null)
     setError(null)
   }
+
+  if (view === "landing") {
+    return <LandingPage onStartOptimization={handleStartOptimization} onLogin={handleGoToLogin} />
+  }
+
+  if (view === "login") {
+    return <LoginPage onBackToLanding={handleBackToLanding} onLoginSuccess={handleLoginSuccess} />
+  }
+
 
   const handleUserProfileUpdate = (profile: UserProfile) => {
     setUserProfile(profile)
@@ -121,7 +136,7 @@ export default function Home() {
         </div>
       )
     }
-    
+
     if (activeTab === 'dashboard') {
       return (
         <div className="text-center py-12 text-slate-500 dark:text-gray-400">
@@ -129,7 +144,7 @@ export default function Home() {
         </div>
       )
     }
-    
+
     if (activeTab === 'towers') {
       return (
         <div className="text-center py-12 text-slate-500 dark:text-gray-400">
@@ -137,7 +152,7 @@ export default function Home() {
         </div>
       )
     }
-    
+
     if (activeTab === 'cost') {
       return (
         <div className="text-center py-12 text-slate-500 dark:text-gray-400">
@@ -145,7 +160,7 @@ export default function Home() {
         </div>
       )
     }
-    
+
     if (activeTab === 'reports') {
       return (
         <div className="text-center py-12 text-slate-500 dark:text-gray-400">
@@ -153,7 +168,7 @@ export default function Home() {
         </div>
       )
     }
-    
+
     // Default fallback
     return (
       <div className="text-center py-12 text-slate-500 dark:text-gray-400">
